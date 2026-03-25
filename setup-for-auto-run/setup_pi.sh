@@ -10,7 +10,7 @@ OWNER="$(stat -c '%U' "$SCRIPT_DIR")"
 GROUP="$(stat -c '%G' "$SCRIPT_DIR")"
 
 # Verify required files exist
-REQUIRED="app.py init_db.py db.py sunset-courts-browser.desktop"
+REQUIRED="app.py init_db.py db.py"
 MISSING=""
 for f in $REQUIRED; do
     [ ! -f "$SCRIPT_DIR/$f" ] && MISSING="$MISSING $f"
@@ -64,11 +64,12 @@ systemctl daemon-reload
 systemctl enable sunset-courts
 systemctl start sunset-courts
 
-# Install browser autostart
-AUTOSTART_DIR="/home/$OWNER/.config/autostart"
-mkdir -p "$AUTOSTART_DIR"
-cp "$SCRIPT_DIR/sunset-courts-browser.desktop" "$AUTOSTART_DIR/"
-chown "$OWNER:$GROUP" "$AUTOSTART_DIR/sunset-courts-browser.desktop"
+# Install browser autostart (labwc on Raspberry Pi OS Bookworm)
+LABWC_DIR="/home/$OWNER/.config/labwc"
+mkdir -p "$LABWC_DIR"
+KIOSK_CMD='bash -c "while ! curl -s http://localhost:5000 > /dev/null 2>&1; do sleep 1; done; chromium-browser --kiosk --noerrdialogs --disable-infobars --no-first-run http://localhost:5000" &'
+grep -qF "sunset-courts" "$LABWC_DIR/autostart" 2>/dev/null || echo "$KIOSK_CMD" >> "$LABWC_DIR/autostart"
+chown -R "$OWNER:$GROUP" "$LABWC_DIR"
 
 echo ""
 echo "=== Setup Complete ==="
