@@ -4,31 +4,56 @@
 
 set -e
 
+# Auto-detect install directory and user
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+OWNER="$(stat -c '%U' "$SCRIPT_DIR")"
+GROUP="$(stat -c '%G' "$SCRIPT_DIR")"
+
 echo "=== Sunset Courts Pi Setup ==="
+echo "  Directory: $SCRIPT_DIR"
+echo "  User: $OWNER"
+echo ""
 
 # Install Flask if needed
 pip3 install flask --break-system-packages -q 2>/dev/null || pip3 install flask -q
 
 # Initialize database if it doesn't exist
-if [ ! -f /home/pi/sunset-courts/sunset_courts.db ]; then
+if [ ! -f "$SCRIPT_DIR/sunset_courts.db" ]; then
     echo "Initializing database..."
-    cd /home/pi/sunset-courts && python3 init_db.py
+    cd "$SCRIPT_DIR" && python3 init_db.py
 fi
 
 # Set debug=False for production
-sed -i 's/debug=True/debug=False/' /home/pi/sunset-courts/app.py
+sed -i 's/debug=True/debug=False/' "$SCRIPT_DIR/app.py"
 
-# Install systemd service (runs Flask on boot)
-cp /home/pi/sunset-courts/sunset-courts.service /etc/systemd/system/
+# Generate systemd service file
+cat > /etc/systemd/system/sunset-courts.service << EOF
+[Unit]
+Description=Sunset Courts Management System
+After=multi-user.target
+
+[Service]
+Type=simple
+User=$OWNER
+WorkingDirectory=$SCRIPT_DIR
+ExecStart=/usr/bin/python3 $SCRIPT_DIR/app.py
+Restart=on-failure
+RestartSec=5
+Environment=FLASK_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
 systemctl enable sunset-courts
 systemctl start sunset-courts
 
-# Install browser autostart (opens Chromium in kiosk mode)
-AUTOSTART_DIR="/home/pi/.config/autostart"
+# Install browser autostart
+AUTOSTART_DIR="/home/$OWNER/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
-cp /home/pi/sunset-courts/sunset-courts-browser.desktop "$AUTOSTART_DIR/"
-chown pi:pi "$AUTOSTART_DIR/sunset-courts-browser.desktop"
+cp "$SCRIPT_DIR/sunset-courts-browser.desktop" "$AUTOSTART_DIR/"
+chown "$OWNER:$GROUP" "$AUTOSTART_DIR/sunset-courts-browser.desktop"
 
 echo ""
 echo "=== Setup Complete ==="
