@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ family.family_name }} — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ family.family_name }}
+        {% if family.is_banned %}<span class="badge badge-banned">Banned</span>{% endif %}
+    </h2>
+    <div class="btn-group">
+        <a href="{{ url_for('member_edit', family_id=family.family_id) }}" class="btn btn-outline">Edit</a>
+        <a href="{{ url_for('member_list') }}" class="btn btn-outline">← Back</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Account Details</div>
+    <div class="detail-grid">
+        <div class="label">Contact</div><div class="value">{{ family.primary_contact or '—' }}</div>
+        <div class="label">Phone</div><div class="value">{{ family.phone or '—' }}</div>
+        <div class="label">Email</div><div class="value">{{ family.email or '—' }}</div>
+        <div class="label">Joined</div><div class="value">{{ family.join_date }}</div>
+        <div class="label">Status</div>
+        <div class="value">
+            {% if family.is_banned %}<span class="badge badge-banned">Banned</span>
+            {% else %}<span class="badge badge-active">Active</span>{% endif %}
+        </div>
+        {% if family.notes %}<div class="label">Notes</div><div class="value">{{ family.notes }}</div>{% endif %}
+    </div>
+    <div class="btn-group">
+        {% if family.is_banned %}
+        <form method="POST" action="{{ url_for('member_unban', family_id=family.family_id) }}">
+            <button type="submit" class="btn btn-primary">Lift Ban</button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('member_ban', family_id=family.family_id) }}"
+              onsubmit="return confirm('Ban this family?');">
+            <button type="submit" class="btn btn-danger">Ban Account</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">Dues History</div>
+    {% if dues %}
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Year</th><th>Status</th><th>Amount</th><th>Date Paid</th><th>Notes</th></tr></thead>
+            <tbody>
+                {% for d in dues %}
+                <tr>
+                    <td><strong>{{ d.year }}</strong></td>
+                    <td>{% if d.is_paid %}<span class="badge badge-paid">Paid</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td>
+                    <td>{{ '$%.2f' % d.amount_paid if d.amount_paid else '—' }}</td>
+                    <td>{{ d.date_paid or '—' }}</td>
+                    <td>{{ d.notes or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<p style="color:var(--text-muted);">No dues records.</p>{% endif %}
+</div>
+
+<div class="card">
+    <div class="flex-between mb-16">
+        <div class="card-header" style="border:none;margin:0;padding:0;">Booking History</div>
+        {% if not family.is_banned %}
+        <a href="{{ url_for('booking_add') }}" class="btn btn-primary btn-sm">+ New Booking</a>
+        {% endif %}
+    </div>
+    {% if bookings %}
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Date</th><th>Time</th><th>Court</th><th>Guests</th><th>Status</th></tr></thead>
+            <tbody>
+                {% for b in bookings %}
+                <tr>
+                    <td>{{ b.booking_date }}</td>
+                    <td>{{ b.start_time }} – {{ b.end_time }}</td>
+                    <td>{{ b.court_name }}</td>
+                    <td>{{ b.guest_count if b.guest_count > 0 else '—' }}</td>
+                    <td>{% if b.is_cancelled %}<span style="color:var(--danger);">Cancelled</span>{% else %}Active{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<p style="color:var(--text-muted);">No bookings.</p>{% endif %}
+</div>
+{% endblock %}

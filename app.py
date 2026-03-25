@@ -12,6 +12,15 @@ app = Flask(__name__)
 app.secret_key = 'sunset-courts-kiosk-2026'
 
 
+@app.context_processor
+def inject_globals():
+    """Make today's display string available in all templates."""
+    now = datetime.now()
+    return {
+        'today_display': now.strftime('%a · %I:%M %p')
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  DASHBOARD
 # ═══════════════════════════════════════════════════════════════════
@@ -19,6 +28,8 @@ app.secret_key = 'sunset-courts-kiosk-2026'
 @app.route('/')
 def dashboard():
     today = date.today().isoformat()
+    now_time = datetime.now().strftime('%H:%M')
+
     # Today's bookings
     todays_bookings = query_db('''
         SELECT b.*, f.family_name, c.court_name
@@ -29,32 +40,63 @@ def dashboard():
         ORDER BY b.start_time, c.court_name
     ''', (today,))
 
-    # Quick stats
+    # Court status — figure out which courts are busy right now
+    courts = query_db('SELECT * FROM courts ORDER BY court_id')
+    court_status = []
+    for court in courts:
+        current_booking = query_db('''
+            SELECT b.*, f.family_name FROM bookings b
+            JOIN families f ON b.family_id = f.family_id
+            WHERE b.court_id = ? AND b.booking_date = ? AND b.is_cancelled = 0
+            AND b.start_time <= ? AND b.end_time > ?
+        ''', (court['court_id'], today, now_time, now_time), one=True)
+
+        # Check maintenance
+        maint = query_db('''
+            SELECT * FROM maintenance_blocks
+            WHERE court_id = ? AND block_date = ?
+            AND start_time <= ? AND end_time > ?
+        ''', (court['court_id'], today, now_time, now_time), one=True)
+
+        if maint:
+            status = 'maint'
+            detail = maint['reason'] or 'Maintenance'
+        elif current_booking:
+            status = 'busy'
+            detail = f"Until {current_booking['end_time']}"
+        else:
+            status = 'open'
+            detail = 'Available now'
+
+        court_status.append({
+            'court': court,
+            'status': status,
+            'detail': detail
+        })
+
+    # Stats
     total_families = query_db('SELECT COUNT(*) as cnt FROM families', one=True)['cnt']
-    active_families = query_db(
-        'SELECT COUNT(*) as cnt FROM families WHERE is_banned = 0', one=True
-    )['cnt']
     current_year = date.today().year
-    dues_paid = query_db(
-        'SELECT COUNT(*) as cnt FROM dues WHERE year = ? AND is_paid = 1',
-        (current_year,), one=True
-    )['cnt']
-    upcoming_bookings = query_db(
-        'SELECT COUNT(*) as cnt FROM bookings WHERE booking_date >= ? AND is_cancelled = 0',
-        (today,), one=True
-    )['cnt']
+    dues_unpaid = query_db('''
+        SELECT COUNT(*) as cnt FROM families f
+        LEFT JOIN dues d ON f.family_id = d.family_id AND d.year = ?
+        WHERE COALESCE(d.is_paid, 0) = 0
+    ''', (current_year,), one=True)['cnt']
+    today_booking_count = len(todays_bookings)
+    open_courts = sum(1 for cs in court_status if cs['status'] == 'open')
 
     return render_template('dashboard.html',
                            todays_bookings=todays_bookings,
+                           court_status=court_status,
+                           open_courts=open_courts,
+                           today_booking_count=today_booking_count,
+                           dues_unpaid=dues_unpaid,
                            total_families=total_families,
-                           active_families=active_families,
-                           dues_paid=dues_paid,
-                           upcoming_bookings=upcoming_bookings,
                            today=today)
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  FAMILY DIRECTORY (CRUD)
+#  FAMILY DIRECTORY
 # ═══════════════════════════════════════════════════════════════════
 
 @app.route('/members')
@@ -97,13 +139,10 @@ def member_add():
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (family_name, primary_contact, phone, email, join_date, notes or None))
 
-        # Create dues record for current year
-        execute_db('''
-            INSERT OR IGNORE INTO dues (family_id, year, is_paid, amount_paid)
-            VALUES (?, ?, 0, 0.0)
-        ''', (family_id, date.today().year))
+        execute_db('INSERT OR IGNORE INTO dues (family_id, year) VALUES (?, ?)',
+                   (family_id, date.today().year))
 
-        flash(f'{family_name} has been added successfully.', 'success')
+        flash(f'{family_name} has been added.', 'success')
         return redirect(url_for('member_list'))
 
     return render_template('members/form.html', mode='add', family={})
@@ -113,28 +152,27 @@ def member_add():
 def member_edit(family_id):
     family = query_db('SELECT * FROM families WHERE family_id = ?', (family_id,), one=True)
     if not family:
-        flash('Family account not found.', 'error')
+        flash('Account not found.', 'error')
         return redirect(url_for('member_list'))
 
     if request.method == 'POST':
         family_name = request.form.get('family_name', '').strip()
-        primary_contact = request.form.get('primary_contact', '').strip()
-        phone = request.form.get('phone', '').strip()
-        email = request.form.get('email', '').strip()
-        notes = request.form.get('notes', '').strip()
-
         if not family_name:
             flash('Family name is required.', 'error')
-            return render_template('members/form.html', mode='edit', family=request.form,
-                                   family_id=family_id)
+            return render_template('members/form.html', mode='edit',
+                                   family=request.form, family_id=family_id)
 
         execute_db('''
-            UPDATE families
-            SET family_name = ?, primary_contact = ?, phone = ?, email = ?, notes = ?
-            WHERE family_id = ?
-        ''', (family_name, primary_contact, phone, email, notes or None, family_id))
+            UPDATE families SET family_name=?, primary_contact=?, phone=?, email=?, notes=?
+            WHERE family_id=?
+        ''', (family_name,
+              request.form.get('primary_contact','').strip(),
+              request.form.get('phone','').strip(),
+              request.form.get('email','').strip(),
+              request.form.get('notes','').strip() or None,
+              family_id))
 
-        flash(f'{family_name} has been updated.', 'success')
+        flash(f'{family_name} updated.', 'success')
         return redirect(url_for('member_list'))
 
     return render_template('members/form.html', mode='edit', family=family, family_id=family_id)
@@ -144,22 +182,14 @@ def member_edit(family_id):
 def member_view(family_id):
     family = query_db('SELECT * FROM families WHERE family_id = ?', (family_id,), one=True)
     if not family:
-        flash('Family account not found.', 'error')
+        flash('Account not found.', 'error')
         return redirect(url_for('member_list'))
 
-    # Dues history
-    dues = query_db('''
-        SELECT * FROM dues WHERE family_id = ? ORDER BY year DESC
-    ''', (family_id,))
-
-    # Recent & upcoming bookings
+    dues = query_db('SELECT * FROM dues WHERE family_id = ? ORDER BY year DESC', (family_id,))
     bookings = query_db('''
-        SELECT b.*, c.court_name
-        FROM bookings b
+        SELECT b.*, c.court_name FROM bookings b
         JOIN courts c ON b.court_id = c.court_id
-        WHERE b.family_id = ?
-        ORDER BY b.booking_date DESC, b.start_time DESC
-        LIMIT 20
+        WHERE b.family_id = ? ORDER BY b.booking_date DESC, b.start_time DESC LIMIT 20
     ''', (family_id,))
 
     return render_template('members/view.html', family=family, dues=dues, bookings=bookings)
@@ -173,36 +203,30 @@ def member_view(family_id):
 def member_ban(family_id):
     family = query_db('SELECT * FROM families WHERE family_id = ?', (family_id,), one=True)
     if not family:
-        flash('Family account not found.', 'error')
+        flash('Account not found.', 'error')
         return redirect(url_for('member_list'))
 
     execute_db('UPDATE families SET is_banned = 1 WHERE family_id = ?', (family_id,))
 
-    # Get future bookings to display warning
-    future_bookings = query_db('''
-        SELECT b.*, c.court_name
-        FROM bookings b
+    future = query_db('''
+        SELECT b.*, c.court_name FROM bookings b
         JOIN courts c ON b.court_id = c.court_id
         WHERE b.family_id = ? AND b.booking_date >= ? AND b.is_cancelled = 0
         ORDER BY b.booking_date, b.start_time
     ''', (family_id, date.today().isoformat()))
 
-    flash(f'{family["family_name"]} has been BANNED. '
-          f'{len(future_bookings)} future booking(s) should be reviewed.', 'warning')
+    flash(f'{family["family_name"]} has been BANNED. {len(future)} future booking(s) to review.', 'warning')
 
-    if future_bookings:
-        return render_template('members/ban_review.html',
-                               family=family, bookings=future_bookings)
-
+    if future:
+        return render_template('members/ban_review.html', family=family, bookings=future)
     return redirect(url_for('member_list'))
 
 
 @app.route('/members/<int:family_id>/unban', methods=['POST'])
 def member_unban(family_id):
     execute_db('UPDATE families SET is_banned = 0 WHERE family_id = ?', (family_id,))
-    family = query_db('SELECT family_name FROM families WHERE family_id = ?',
-                      (family_id,), one=True)
-    flash(f'{family["family_name"]} ban has been lifted.', 'success')
+    family = query_db('SELECT family_name FROM families WHERE family_id = ?', (family_id,), one=True)
+    flash(f'{family["family_name"]} ban lifted.', 'success')
     return redirect(url_for('member_list'))
 
 
@@ -231,26 +255,14 @@ def booking_calendar():
         ORDER BY c.court_id, b.start_time
     ''', (current_date.isoformat(),))
 
-    # Group bookings by court
-    court_bookings = {}
-    for court in courts:
-        court_bookings[court['court_id']] = []
+    court_bookings = {c['court_id']: [] for c in courts}
     for b in bookings:
         court_bookings[b['court_id']].append(b)
 
-    # Generate time slots (24-hour, every 30 min)
-    time_slots = []
-    for hour in range(24):
-        for minute in [0, 30]:
-            time_slots.append(f'{hour:02d}:{minute:02d}')
-
     return render_template('bookings/calendar.html',
-                           courts=courts,
-                           court_bookings=court_bookings,
+                           courts=courts, court_bookings=court_bookings,
                            current_date=current_date,
-                           prev_date=prev_date,
-                           next_date=next_date,
-                           time_slots=time_slots)
+                           prev_date=prev_date, next_date=next_date)
 
 
 @app.route('/bookings/add', methods=['GET', 'POST'])
@@ -265,75 +277,60 @@ def booking_add():
         notes = request.form.get('notes', '').strip()
 
         errors = []
-
-        # Validation
         if not all([family_id, court_id, booking_date, start_time, end_time]):
             errors.append('All fields are required.')
 
-        # Check family exists and not banned
         if family_id:
-            family = query_db('SELECT * FROM families WHERE family_id = ?',
-                              (family_id,), one=True)
-            if not family:
-                errors.append('Family account not found.')
-            elif family['is_banned']:
-                errors.append(f'{family["family_name"]} is BANNED and cannot make bookings.')
+            fam = query_db('SELECT * FROM families WHERE family_id = ?', (family_id,), one=True)
+            if not fam:
+                errors.append('Family not found.')
+            elif fam['is_banned']:
+                errors.append(f'{fam["family_name"]} is BANNED and cannot book.')
 
-        # 365-day advance limit
         if booking_date:
             try:
                 bd = datetime.strptime(booking_date, '%Y-%m-%d').date()
-                max_date = date.today() + timedelta(days=365)
-                if bd > max_date:
-                    errors.append('Bookings cannot be more than 365 days in advance.')
+                if bd > date.today() + timedelta(days=365):
+                    errors.append('Bookings cannot exceed 365 days in advance.')
                 if bd < date.today():
                     errors.append('Cannot book in the past.')
             except ValueError:
-                errors.append('Invalid date format.')
+                errors.append('Invalid date.')
 
-        # Check time validity
         if start_time and end_time and start_time >= end_time:
             errors.append('End time must be after start time.')
 
-        # Double-booking detection
         if not errors and court_id and booking_date and start_time and end_time:
             conflict = query_db('''
-                SELECT b.*, f.family_name
-                FROM bookings b
+                SELECT b.*, f.family_name FROM bookings b
                 JOIN families f ON b.family_id = f.family_id
                 WHERE b.court_id = ? AND b.booking_date = ? AND b.is_cancelled = 0
                 AND b.start_time < ? AND b.end_time > ?
             ''', (court_id, booking_date, end_time, start_time))
             if conflict:
                 names = ', '.join([c['family_name'] for c in conflict])
-                errors.append(f'Time conflict with existing booking(s): {names}')
+                errors.append(f'Time conflict with: {names}')
 
-        # Guest count soft warning
         if guest_count > 2:
-            flash('Note: Guest limit is 2 per visit. This booking exceeds the recommended limit.', 'warning')
+            flash('Note: Guest limit is 2 per visit. Booking exceeds recommended limit.', 'warning')
 
         if errors:
             for e in errors:
                 flash(e, 'error')
-            families = query_db(
-                'SELECT * FROM families WHERE is_banned = 0 ORDER BY family_name')
+            families = query_db('SELECT * FROM families WHERE is_banned = 0 ORDER BY family_name')
             courts = query_db('SELECT * FROM courts ORDER BY court_id')
             return render_template('bookings/form.html', mode='add',
                                    families=families, courts=courts, booking=request.form)
 
         execute_db('''
-            INSERT INTO bookings (family_id, court_id, booking_date, start_time, end_time,
-                                  guest_count, notes)
+            INSERT INTO bookings (family_id, court_id, booking_date, start_time, end_time, guest_count, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (family_id, court_id, booking_date, start_time, end_time,
-              guest_count, notes or None))
+        ''', (family_id, court_id, booking_date, start_time, end_time, guest_count, notes or None))
 
-        flash('Booking created successfully.', 'success')
+        flash('Booking created.', 'success')
         return redirect(url_for('booking_calendar', date=booking_date))
 
-    # GET — prefill date/time/court from query params
-    families = query_db(
-        'SELECT * FROM families WHERE is_banned = 0 ORDER BY family_name')
+    families = query_db('SELECT * FROM families WHERE is_banned = 0 ORDER BY family_name')
     courts = query_db('SELECT * FROM courts ORDER BY court_id')
     prefill = {
         'booking_date': request.args.get('date', date.today().isoformat()),
@@ -346,8 +343,7 @@ def booking_add():
 
 @app.route('/bookings/<int:booking_id>/cancel', methods=['POST'])
 def booking_cancel(booking_id):
-    booking = query_db('SELECT * FROM bookings WHERE booking_id = ?',
-                       (booking_id,), one=True)
+    booking = query_db('SELECT * FROM bookings WHERE booking_id = ?', (booking_id,), one=True)
     if not booking:
         flash('Booking not found.', 'error')
         return redirect(url_for('booking_calendar'))
@@ -373,7 +369,7 @@ def booking_view(booking_id):
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  DUES MANAGEMENT
+#  DUES
 # ═══════════════════════════════════════════════════════════════════
 
 @app.route('/dues')
@@ -395,19 +391,13 @@ def dues_pay(family_id):
     amount = request.form.get('amount', 0.0, type=float)
     notes = request.form.get('notes', '').strip()
 
-    # Try update existing, else insert
-    existing = query_db('SELECT * FROM dues WHERE family_id = ? AND year = ?',
-                        (family_id, year), one=True)
+    existing = query_db('SELECT * FROM dues WHERE family_id = ? AND year = ?', (family_id, year), one=True)
     if existing:
-        execute_db('''
-            UPDATE dues SET is_paid = 1, amount_paid = ?, date_paid = ?, notes = ?
-            WHERE family_id = ? AND year = ?
-        ''', (amount, date.today().isoformat(), notes or None, family_id, year))
+        execute_db('UPDATE dues SET is_paid=1, amount_paid=?, date_paid=?, notes=? WHERE family_id=? AND year=?',
+                   (amount, date.today().isoformat(), notes or None, family_id, year))
     else:
-        execute_db('''
-            INSERT INTO dues (family_id, year, is_paid, amount_paid, date_paid, notes)
-            VALUES (?, ?, 1, ?, ?, ?)
-        ''', (family_id, year, amount, date.today().isoformat(), notes or None))
+        execute_db('INSERT INTO dues (family_id, year, is_paid, amount_paid, date_paid, notes) VALUES (?,?,1,?,?,?)',
+                   (family_id, year, amount, date.today().isoformat(), notes or None))
 
     flash('Dues recorded as paid.', 'success')
     return redirect(url_for('dues_list', year=year))
@@ -416,11 +406,9 @@ def dues_pay(family_id):
 @app.route('/dues/<int:family_id>/unpay', methods=['POST'])
 def dues_unpay(family_id):
     year = request.form.get('year', date.today().year, type=int)
-    execute_db('''
-        UPDATE dues SET is_paid = 0, amount_paid = 0, date_paid = NULL
-        WHERE family_id = ? AND year = ?
-    ''', (family_id, year))
-    flash('Dues marked as unpaid.', 'success')
+    execute_db('UPDATE dues SET is_paid=0, amount_paid=0, date_paid=NULL WHERE family_id=? AND year=?',
+               (family_id, year))
+    flash('Dues marked unpaid.', 'success')
     return redirect(url_for('dues_list', year=year))
 
 
@@ -435,70 +423,50 @@ def reports_home():
 
 @app.route('/reports/monthly')
 def report_monthly():
-    # Default to current month
     year = request.args.get('year', date.today().year, type=int)
     month = request.args.get('month', date.today().month, type=int)
 
-    # Total bookings this month
     total = query_db('''
         SELECT COUNT(*) as cnt FROM bookings
-        WHERE strftime('%Y', booking_date) = ? AND strftime('%m', booking_date) = ?
-        AND is_cancelled = 0
+        WHERE strftime('%Y', booking_date) = ? AND strftime('%m', booking_date) = ? AND is_cancelled = 0
     ''', (str(year), f'{month:02d}'), one=True)['cnt']
 
-    # By member
     by_member = query_db('''
-        SELECT f.family_name, COUNT(*) as cnt
-        FROM bookings b
+        SELECT f.family_name, COUNT(*) as cnt FROM bookings b
         JOIN families f ON b.family_id = f.family_id
-        WHERE strftime('%Y', b.booking_date) = ? AND strftime('%m', b.booking_date) = ?
-        AND b.is_cancelled = 0
-        GROUP BY f.family_id
-        ORDER BY cnt DESC
+        WHERE strftime('%Y', b.booking_date) = ? AND strftime('%m', b.booking_date) = ? AND b.is_cancelled = 0
+        GROUP BY f.family_id ORDER BY cnt DESC
     ''', (str(year), f'{month:02d}'))
 
-    # By court
     by_court = query_db('''
-        SELECT c.court_name, COUNT(*) as cnt
-        FROM bookings b
+        SELECT c.court_name, COUNT(*) as cnt FROM bookings b
         JOIN courts c ON b.court_id = c.court_id
-        WHERE strftime('%Y', b.booking_date) = ? AND strftime('%m', b.booking_date) = ?
-        AND b.is_cancelled = 0
-        GROUP BY c.court_id
-        ORDER BY c.court_name
+        WHERE strftime('%Y', b.booking_date) = ? AND strftime('%m', b.booking_date) = ? AND b.is_cancelled = 0
+        GROUP BY c.court_id ORDER BY c.court_name
     ''', (str(year), f'{month:02d}'))
 
-    return render_template('reports/monthly.html',
-                           total=total, by_member=by_member, by_court=by_court,
-                           year=year, month=month)
+    return render_template('reports/monthly.html', total=total,
+                           by_member=by_member, by_court=by_court, year=year, month=month)
 
 
 @app.route('/reports/peak')
 def report_peak():
     year = request.args.get('year', date.today().year, type=int)
 
-    # By hour of day
     by_hour = query_db('''
         SELECT CAST(substr(start_time, 1, 2) AS INTEGER) as hour, COUNT(*) as cnt
-        FROM bookings
-        WHERE strftime('%Y', booking_date) = ? AND is_cancelled = 0
-        GROUP BY hour
-        ORDER BY hour
+        FROM bookings WHERE strftime('%Y', booking_date) = ? AND is_cancelled = 0
+        GROUP BY hour ORDER BY hour
     ''', (str(year),))
 
-    # By day of week (0=Sunday in SQLite strftime %w)
     by_day = query_db('''
         SELECT CAST(strftime('%w', booking_date) AS INTEGER) as dow, COUNT(*) as cnt
-        FROM bookings
-        WHERE strftime('%Y', booking_date) = ? AND is_cancelled = 0
-        GROUP BY dow
-        ORDER BY dow
+        FROM bookings WHERE strftime('%Y', booking_date) = ? AND is_cancelled = 0
+        GROUP BY dow ORDER BY dow
     ''', (str(year),))
 
-    day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-
-    return render_template('reports/peak.html',
-                           by_hour=by_hour, by_day=by_day,
+    day_names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+    return render_template('reports/peak.html', by_hour=by_hour, by_day=by_day,
                            day_names=day_names, year=year)
 
 
@@ -506,80 +474,63 @@ def report_peak():
 def report_yearly():
     year = request.args.get('year', date.today().year, type=int)
 
-    total_bookings = query_db('''
-        SELECT COUNT(*) as cnt FROM bookings
-        WHERE strftime('%Y', booking_date) = ? AND is_cancelled = 0
-    ''', (str(year),), one=True)['cnt']
+    total = query_db('SELECT COUNT(*) as cnt FROM bookings WHERE strftime(\'%Y\', booking_date) = ? AND is_cancelled = 0',
+                     (str(year),), one=True)['cnt']
 
     by_member = query_db('''
-        SELECT f.family_name, COUNT(*) as cnt
-        FROM bookings b JOIN families f ON b.family_id = f.family_id
+        SELECT f.family_name, COUNT(*) as cnt FROM bookings b
+        JOIN families f ON b.family_id = f.family_id
         WHERE strftime('%Y', b.booking_date) = ? AND b.is_cancelled = 0
         GROUP BY f.family_id ORDER BY cnt DESC
     ''', (str(year),))
 
     by_court = query_db('''
-        SELECT c.court_name, COUNT(*) as cnt
-        FROM bookings b JOIN courts c ON b.court_id = c.court_id
+        SELECT c.court_name, COUNT(*) as cnt FROM bookings b
+        JOIN courts c ON b.court_id = c.court_id
         WHERE strftime('%Y', b.booking_date) = ? AND b.is_cancelled = 0
         GROUP BY c.court_id ORDER BY c.court_name
     ''', (str(year),))
 
-    maintenance_by_court = query_db('''
-        SELECT c.court_name, COUNT(*) as cnt
-        FROM maintenance_blocks mb JOIN courts c ON mb.court_id = c.court_id
+    maint = query_db('''
+        SELECT c.court_name, COUNT(*) as cnt FROM maintenance_blocks mb
+        JOIN courts c ON mb.court_id = c.court_id
         WHERE strftime('%Y', mb.block_date) = ?
         GROUP BY c.court_id ORDER BY c.court_name
     ''', (str(year),))
 
-    return render_template('reports/yearly.html',
-                           total_bookings=total_bookings,
+    return render_template('reports/yearly.html', total_bookings=total,
                            by_member=by_member, by_court=by_court,
-                           maintenance_by_court=maintenance_by_court,
-                           year=year)
+                           maintenance_by_court=maint, year=year)
 
 
 @app.route('/reports/guests')
 def report_guests():
     year = request.args.get('year', date.today().year, type=int)
-
-    guest_report = query_db('''
+    report = query_db('''
         SELECT f.family_name, SUM(b.guest_count) as total_guests,
                COUNT(CASE WHEN b.guest_count > 0 THEN 1 END) as visits_with_guests
-        FROM bookings b
-        JOIN families f ON b.family_id = f.family_id
-        WHERE strftime('%Y', b.booking_date) = ? AND b.is_cancelled = 0
-        AND b.guest_count > 0
-        GROUP BY f.family_id
-        ORDER BY total_guests DESC
+        FROM bookings b JOIN families f ON b.family_id = f.family_id
+        WHERE strftime('%Y', b.booking_date) = ? AND b.is_cancelled = 0 AND b.guest_count > 0
+        GROUP BY f.family_id ORDER BY total_guests DESC
     ''', (str(year),))
-
-    return render_template('reports/guests.html', guest_report=guest_report, year=year)
+    return render_template('reports/guests.html', guest_report=report, year=year)
 
 
 @app.route('/reports/dues')
 def report_dues_status():
     year = request.args.get('year', date.today().year, type=int)
-
-    dues_report = query_db('''
-        SELECT f.family_name, f.is_banned,
-               COALESCE(d.is_paid, 0) as is_paid,
+    report = query_db('''
+        SELECT f.family_name, f.is_banned, COALESCE(d.is_paid, 0) as is_paid,
                d.amount_paid, d.date_paid
         FROM families f
         LEFT JOIN dues d ON f.family_id = d.family_id AND d.year = ?
         ORDER BY COALESCE(d.is_paid, 0), f.family_name
     ''', (year,))
-
-    paid_count = sum(1 for d in dues_report if d['is_paid'])
-    unpaid_count = len(dues_report) - paid_count
-
-    return render_template('reports/dues_status.html',
-                           dues_report=dues_report, year=year,
-                           paid_count=paid_count, unpaid_count=unpaid_count)
+    paid = sum(1 for r in report if r['is_paid'])
+    return render_template('reports/dues_status.html', dues_report=report, year=year,
+                           paid_count=paid, unpaid_count=len(report) - paid)
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  RUN
 # ═══════════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':

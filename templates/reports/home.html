@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Reports — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header"><h2>Reports</h2></div>
+<div class="report-grid">
+    <a href="{{ url_for('report_monthly') }}" class="report-card">
+        <div class="report-icon">📅</div><h3>Monthly Usage</h3><p>Bookings by member and court for any month.</p>
+    </a>
+    <a href="{{ url_for('report_peak') }}" class="report-card">
+        <div class="report-icon">⏰</div><h3>Peak Times</h3><p>Frequency by hour and day of week.</p>
+    </a>
+    <a href="{{ url_for('report_yearly') }}" class="report-card">
+        <div class="report-icon">📈</div><h3>Year-End Summary</h3><p>Total bookings, by member, by court.</p>
+    </a>
+    <a href="{{ url_for('report_guests') }}" class="report-card">
+        <div class="report-icon">🧑‍🤝‍🧑</div><h3>Guest Activity</h3><p>Guest counts per family.</p>
+    </a>
+    <a href="{{ url_for('report_dues_status') }}" class="report-card">
+        <div class="report-icon">💰</div><h3>Dues Status</h3><p>All accounts — paid/unpaid.</p>
+    </a>
+</div>
+{% endblock %}
