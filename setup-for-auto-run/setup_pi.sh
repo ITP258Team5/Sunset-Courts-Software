@@ -9,6 +9,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OWNER="$(stat -c '%U' "$SCRIPT_DIR")"
 GROUP="$(stat -c '%G' "$SCRIPT_DIR")"
 
+# Verify required files exist
+REQUIRED="app.py init_db.py db.py sunset-courts-browser.desktop"
+MISSING=""
+for f in $REQUIRED; do
+    [ ! -f "$SCRIPT_DIR/$f" ] && MISSING="$MISSING $f"
+done
+
+if [ -n "$MISSING" ]; then
+    echo "ERROR: Missing required files in $SCRIPT_DIR:"
+    echo " $MISSING"
+    echo ""
+    echo "Run this script from the sunset-courts project directory."
+    exit 1
+fi
+
 echo "=== Sunset Courts Pi Setup ==="
 echo "  Directory: $SCRIPT_DIR"
 echo "  User: $OWNER"
