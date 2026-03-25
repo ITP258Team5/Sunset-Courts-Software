@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Sunset Courts Kiosk
+Exec=bash -c 'while ! curl -s http://localhost:5000 > /dev/null 2>&1; do sleep 1; done; chromium-browser --kiosk --noerrdialogs --disable-infobars --no-first-run http://localhost:5000'
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
