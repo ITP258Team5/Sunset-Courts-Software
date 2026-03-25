@@ -12,12 +12,39 @@ app = Flask(__name__)
 app.secret_key = 'sunset-courts-kiosk-2026'
 
 
+# ═══════════════════════════════════════════════════════════════════
+#  TEMPLATE FILTERS & GLOBALS
+# ═══════════════════════════════════════════════════════════════════
+
+@app.template_filter('usdate')
+def us_date_filter(value):
+    """Convert YYYY-MM-DD to MM/DD/YYYY."""
+    if not value:
+        return ''
+    try:
+        d = datetime.strptime(str(value), '%Y-%m-%d')
+        return d.strftime('%m/%d/%Y')
+    except (ValueError, TypeError):
+        return str(value)
+
+
+@app.template_filter('ustime')
+def us_time_filter(value):
+    """Convert HH:MM (24hr) to h:MM AM/PM."""
+    if not value:
+        return ''
+    try:
+        t = datetime.strptime(str(value).strip(), '%H:%M')
+        return t.strftime('%-I:%M %p')
+    except (ValueError, TypeError):
+        return str(value)
+
+
 @app.context_processor
 def inject_globals():
-    """Make today's display string available in all templates."""
     now = datetime.now()
     return {
-        'today_display': now.strftime('%a · %I:%M %p')
+        'today_display': now.strftime('%a %m/%d/%Y  %-I:%M %p')
     }
 
 
@@ -30,7 +57,6 @@ def dashboard():
     today = date.today().isoformat()
     now_time = datetime.now().strftime('%H:%M')
 
-    # Today's bookings
     todays_bookings = query_db('''
         SELECT b.*, f.family_name, c.court_name
         FROM bookings b
@@ -40,7 +66,6 @@ def dashboard():
         ORDER BY b.start_time, c.court_name
     ''', (today,))
 
-    # Court status — figure out which courts are busy right now
     courts = query_db('SELECT * FROM courts ORDER BY court_id')
     court_status = []
     for court in courts:
@@ -51,7 +76,6 @@ def dashboard():
             AND b.start_time <= ? AND b.end_time > ?
         ''', (court['court_id'], today, now_time, now_time), one=True)
 
-        # Check maintenance
         maint = query_db('''
             SELECT * FROM maintenance_blocks
             WHERE court_id = ? AND block_date = ?
@@ -63,7 +87,7 @@ def dashboard():
             detail = maint['reason'] or 'Maintenance'
         elif current_booking:
             status = 'busy'
-            detail = f"Until {current_booking['end_time']}"
+            detail = f"Until {us_time_filter(current_booking['end_time'])}"
         else:
             status = 'open'
             detail = 'Available now'
@@ -74,8 +98,7 @@ def dashboard():
             'detail': detail
         })
 
-    # Stats
-    total_families = query_db('SELECT COUNT(*) as cnt FROM families', one=True)['cnt']
+    total_accounts = query_db('SELECT COUNT(*) as cnt FROM families', one=True)['cnt']
     current_year = date.today().year
     dues_unpaid = query_db('''
         SELECT COUNT(*) as cnt FROM families f
@@ -91,12 +114,12 @@ def dashboard():
                            open_courts=open_courts,
                            today_booking_count=today_booking_count,
                            dues_unpaid=dues_unpaid,
-                           total_families=total_families,
+                           total_accounts=total_accounts,
                            today=today)
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  FAMILY DIRECTORY
+#  ACCOUNT DIRECTORY
 # ═══════════════════════════════════════════════════════════════════
 
 @app.route('/members')
@@ -131,7 +154,7 @@ def member_add():
         notes = request.form.get('notes', '').strip()
 
         if not family_name:
-            flash('Family name is required.', 'error')
+            flash('Account name is required.', 'error')
             return render_template('members/form.html', mode='add', family=request.form)
 
         family_id = execute_db('''
@@ -158,7 +181,7 @@ def member_edit(family_id):
     if request.method == 'POST':
         family_name = request.form.get('family_name', '').strip()
         if not family_name:
-            flash('Family name is required.', 'error')
+            flash('Account name is required.', 'error')
             return render_template('members/form.html', mode='edit',
                                    family=request.form, family_id=family_id)
 
@@ -283,7 +306,7 @@ def booking_add():
         if family_id:
             fam = query_db('SELECT * FROM families WHERE family_id = ?', (family_id,), one=True)
             if not fam:
-                errors.append('Family not found.')
+                errors.append('Account not found.')
             elif fam['is_banned']:
                 errors.append(f'{fam["family_name"]} is BANNED and cannot book.')
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Monthly Report — Sunset Courts{% endblock %}
 {% block content %}
-<div class="page-header"><h2>Monthly Usage Report</h2><a href="{{ url_for('reports_home') }}" class="btn btn-outline">← Reports</a></div>
+<div class="page-header"><h2>Monthly Usage Report</h2><a href="{{ url_for('reports_home') }}" class="btn btn-outline">Reports</a></div>
 <div class="card mb-16">
     <form method="GET" action="{{ url_for('report_monthly') }}" class="form-row" style="align-items:end;">
         <div class="form-group" style="margin-bottom:0;"><label>Year</label><input type="number" name="year" value="{{ year }}" min="2020" max="2030"></div>
@@ -13,7 +13,7 @@
 </div>
 <div class="stat-strip"><div class="stat-item"><div class="stat-value">{{ total }}</div><div class="stat-label">Total Bookings</div></div></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-    <div class="card"><div class="card-header">By Member</div>
+    <div class="card"><div class="card-header">By Account</div>
         {% if by_member %}<div class="bar-chart">{% set mx = by_member[0].cnt if by_member else 1 %}{% for r in by_member %}<div class="bar-row"><span class="bar-label">{{ r.family_name }}</span><div class="bar-fill" style="width:{{ (r.cnt/mx*100)|int }}%;min-width:36px;">{{ r.cnt }}</div></div>{% endfor %}</div>{% else %}<p style="color:var(--text-muted);">No data.</p>{% endif %}
     </div>
     <div class="card"><div class="card-header">By Court</div>

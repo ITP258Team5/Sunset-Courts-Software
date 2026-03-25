@@ -2,7 +2,6 @@
 {% block title %}Dashboard — Sunset Courts{% endblock %}
 {% block content %}
 
-<!-- Stat Strip -->
 <div class="stat-strip">
     <div class="stat-item">
         <div class="stat-value">{{ open_courts }}</div>
@@ -17,12 +16,11 @@
         <div class="stat-label">Dues Unpaid</div>
     </div>
     <div class="stat-item">
-        <div class="stat-value">{{ total_families }}</div>
-        <div class="stat-label">Active Families</div>
+        <div class="stat-value">{{ total_accounts }}</div>
+        <div class="stat-label">Active Accounts</div>
     </div>
 </div>
 
-<!-- Live Court Status -->
 <div class="section-label">Live Court Status</div>
 <div class="courts-grid mb-16">
     {% for cs in court_status %}
@@ -39,32 +37,31 @@
     {% endfor %}
 </div>
 
-<!-- Navigation -->
 <div class="section-label">Quick Actions</div>
 <div class="nav-grid mb-16">
     <a href="{{ url_for('booking_add') }}" class="nav-card highlight">
-        <div class="icon-box ic-amber">📋</div>
+        <div class="icon-box ic-amber">+</div>
         <div>
             <div class="nav-card-title">Book a Court</div>
             <div class="nav-card-sub">Create reservation</div>
         </div>
     </a>
     <a href="{{ url_for('member_list') }}" class="nav-card">
-        <div class="icon-box ic-blue">👥</div>
+        <div class="icon-box ic-blue">A</div>
         <div>
-            <div class="nav-card-title">Families</div>
-            <div class="nav-card-sub">Accounts &amp; members</div>
+            <div class="nav-card-title">Accounts</div>
+            <div class="nav-card-sub">Members &amp; families</div>
         </div>
     </a>
     <a href="{{ url_for('dues_list') }}" class="nav-card">
-        <div class="icon-box ic-teal">💰</div>
+        <div class="icon-box ic-teal">$</div>
         <div>
             <div class="nav-card-title">Dues</div>
             <div class="nav-card-sub">Payments &amp; status</div>
         </div>
     </a>
     <a href="{{ url_for('reports_home') }}" class="nav-card">
-        <div class="icon-box ic-slate">📊</div>
+        <div class="icon-box ic-slate">R</div>
         <div>
             <div class="nav-card-title">Reports</div>
             <div class="nav-card-sub">Usage &amp; financials</div>
@@ -72,19 +69,18 @@
     </a>
 </div>
 
-<!-- Today's Bookings -->
 {% if todays_bookings %}
 <div class="section-label">Today's Schedule</div>
 <div class="card">
     <div class="table-wrap">
         <table>
             <thead>
-                <tr><th>Time</th><th>Court</th><th>Family</th><th>Guests</th><th>Notes</th></tr>
+                <tr><th>Time</th><th>Court</th><th>Account</th><th>Guests</th><th>Notes</th></tr>
             </thead>
             <tbody>
                 {% for b in todays_bookings %}
                 <tr>
-                    <td><strong>{{ b.start_time }} – {{ b.end_time }}</strong></td>
+                    <td><strong>{{ b.start_time|ustime }} - {{ b.end_time|ustime }}</strong></td>
                     <td>{{ b.court_name }}</td>
                     <td><a href="{{ url_for('member_view', family_id=b.family_id) }}">{{ b.family_name }}</a></td>
                     <td>{{ b.guest_count if b.guest_count > 0 else '—' }}</td>

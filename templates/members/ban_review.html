@@ -11,8 +11,8 @@
             <tbody>
                 {% for b in bookings %}
                 <tr>
-                    <td><strong>{{ b.booking_date }}</strong></td>
-                    <td>{{ b.start_time }} – {{ b.end_time }}</td>
+                    <td><strong>{{ b.booking_date|usdate }}</strong></td>
+                    <td>{{ b.start_time|ustime }} - {{ b.end_time|ustime }}</td>
                     <td>{{ b.court_name }}</td>
                     <td>{{ b.guest_count }}</td>
                     <td>
@@ -26,5 +26,5 @@
         </table>
     </div>
 </div>
-<a href="{{ url_for('member_list') }}" class="btn btn-primary btn-lg mt-16">← Return to Directory</a>
+<a href="{{ url_for('member_list') }}" class="btn btn-primary btn-lg mt-16">Return to Directory</a>
 {% endblock %}

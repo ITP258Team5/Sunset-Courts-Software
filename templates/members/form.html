@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Add Family' if mode == 'add' else 'Edit Family' }} — Sunset Courts{% endblock %}
+{% block title %}{{ 'Add Account' if mode == 'add' else 'Edit Account' }} — Sunset Courts{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>{{ 'Add New Family' if mode == 'add' else 'Edit Family Account' }}</h2>
-    <a href="{{ url_for('member_list') }}" class="btn btn-outline">← Back</a>
+    <h2>{{ 'Add New Account' if mode == 'add' else 'Edit Account' }}</h2>
+    <a href="{{ url_for('member_list') }}" class="btn btn-outline">Back</a>
 </div>
 <div class="card">
     <form method="POST" action="{{ url_for('member_add') if mode == 'add' else url_for('member_edit', family_id=family_id) }}">
         <div class="form-row">
             <div class="form-group">
-                <label for="family_name">Family Account Name *</label>
+                <label for="family_name">Account Name *</label>
                 <input type="text" id="family_name" name="family_name"
                        value="{{ family['family_name'] if family and family['family_name'] else '' }}"
-                       placeholder='e.g. "The Smith Family"' required>
+                       placeholder='e.g. "The Smith Family" or "John Smith"' required>
             </div>
             <div class="form-group">
                 <label for="primary_contact">Primary Contact</label>
@@ -30,7 +30,7 @@
             <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email"
-                       value="{{ family['email'] if family and family['email'] else '' }}" placeholder="family@email.com">
+                       value="{{ family['email'] if family and family['email'] else '' }}" placeholder="name@email.com">
             </div>
         </div>
         {% if mode == 'add' %}
@@ -45,7 +45,7 @@
             <textarea id="notes" name="notes" rows="3" placeholder="Optional notes...">{{ family['notes'] if family and family['notes'] else '' }}</textarea>
         </div>
         <div class="btn-group mt-16">
-            <button type="submit" class="btn btn-primary btn-lg">{{ 'Add Family' if mode == 'add' else 'Save Changes' }}</button>
+            <button type="submit" class="btn btn-primary btn-lg">{{ 'Add Account' if mode == 'add' else 'Save Changes' }}</button>
             <a href="{{ url_for('member_list') }}" class="btn btn-outline btn-lg">Cancel</a>
         </div>
     </form>

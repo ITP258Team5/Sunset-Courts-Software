@@ -7,7 +7,7 @@
     </h2>
     <div class="btn-group">
         <a href="{{ url_for('member_edit', family_id=family.family_id) }}" class="btn btn-outline">Edit</a>
-        <a href="{{ url_for('member_list') }}" class="btn btn-outline">← Back</a>
+        <a href="{{ url_for('member_list') }}" class="btn btn-outline">Back</a>
     </div>
 </div>
 
@@ -17,7 +17,7 @@
         <div class="label">Contact</div><div class="value">{{ family.primary_contact or '—' }}</div>
         <div class="label">Phone</div><div class="value">{{ family.phone or '—' }}</div>
         <div class="label">Email</div><div class="value">{{ family.email or '—' }}</div>
-        <div class="label">Joined</div><div class="value">{{ family.join_date }}</div>
+        <div class="label">Joined</div><div class="value">{{ family.join_date|usdate }}</div>
         <div class="label">Status</div>
         <div class="value">
             {% if family.is_banned %}<span class="badge badge-banned">Banned</span>
@@ -32,7 +32,7 @@
         </form>
         {% else %}
         <form method="POST" action="{{ url_for('member_ban', family_id=family.family_id) }}"
-              onsubmit="return confirm('Ban this family?');">
+              onsubmit="return confirm('Ban this account?');">
             <button type="submit" class="btn btn-danger">Ban Account</button>
         </form>
         {% endif %}
@@ -51,7 +51,7 @@
                     <td><strong>{{ d.year }}</strong></td>
                     <td>{% if d.is_paid %}<span class="badge badge-paid">Paid</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td>
                     <td>{{ '$%.2f' % d.amount_paid if d.amount_paid else '—' }}</td>
-                    <td>{{ d.date_paid or '—' }}</td>
+                    <td>{{ d.date_paid|usdate or '—' }}</td>
                     <td>{{ d.notes or '—' }}</td>
                 </tr>
                 {% endfor %}
@@ -75,8 +75,8 @@
             <tbody>
                 {% for b in bookings %}
                 <tr>
-                    <td>{{ b.booking_date }}</td>
-                    <td>{{ b.start_time }} – {{ b.end_time }}</td>
+                    <td>{{ b.booking_date|usdate }}</td>
+                    <td>{{ b.start_time|ustime }} - {{ b.end_time|ustime }}</td>
                     <td>{{ b.court_name }}</td>
                     <td>{{ b.guest_count if b.guest_count > 0 else '—' }}</td>
                     <td>{% if b.is_cancelled %}<span style="color:var(--danger);">Cancelled</span>{% else %}Active{% endif %}</td>

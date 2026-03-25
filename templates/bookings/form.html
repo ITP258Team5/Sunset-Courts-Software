@@ -3,21 +3,21 @@
 {% block content %}
 <div class="page-header">
     <h2>Create New Booking</h2>
-    <a href="{{ url_for('booking_calendar') }}" class="btn btn-outline">← Calendar</a>
+    <a href="{{ url_for('booking_calendar') }}" class="btn btn-outline">Calendar</a>
 </div>
 <div class="card">
     <form method="POST" action="{{ url_for('booking_add') }}">
         <div class="form-group">
-            <label for="family_id">Family Account *</label>
+            <label for="family_id">Account *</label>
             <select id="family_id" name="family_id" required>
-                <option value="">— Select a family —</option>
+                <option value="">— Select an account —</option>
                 {% for f in families %}
                 <option value="{{ f.family_id }}" {% if booking.get('family_id') and booking.get('family_id')|string == f.family_id|string %}selected{% endif %}>
                     {{ f.family_name }} ({{ f.primary_contact or 'No contact' }})
                 </option>
                 {% endfor %}
             </select>
-            <span class="hint">Only active (non-banned) families shown.</span>
+            <span class="hint">Only active (non-banned) accounts shown.</span>
         </div>
         <div class="form-row">
             <div class="form-group">

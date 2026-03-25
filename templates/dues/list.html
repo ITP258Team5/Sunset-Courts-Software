@@ -4,13 +4,13 @@
 <div class="page-header">
     <h2>Dues — {{ current_year }}</h2>
     <div class="btn-group">
-        <a href="{{ url_for('dues_list', year=current_year - 1) }}" class="btn btn-outline btn-sm">◀ {{ current_year - 1 }}</a>
-        <a href="{{ url_for('dues_list', year=current_year + 1) }}" class="btn btn-outline btn-sm">{{ current_year + 1 }} ▶</a>
+        <a href="{{ url_for('dues_list', year=current_year - 1) }}" class="btn btn-outline btn-sm">{{ current_year - 1 }}</a>
+        <a href="{{ url_for('dues_list', year=current_year + 1) }}" class="btn btn-outline btn-sm">{{ current_year + 1 }}</a>
     </div>
 </div>
 <div class="table-wrap">
     <table>
-        <thead><tr><th>Family</th><th>Status</th><th>Amount</th><th>Date Paid</th><th>Notes</th><th>Action</th></tr></thead>
+        <thead><tr><th>Account</th><th>Status</th><th>Amount</th><th>Date Paid</th><th>Notes</th><th>Action</th></tr></thead>
         <tbody>
             {% for d in dues %}
             <tr {% if d.is_banned %}style="background:#fef5f0;"{% endif %}>
@@ -18,7 +18,7 @@
                     {% if d.is_banned %}<span class="badge badge-banned" style="font-size:9px;">Banned</span>{% endif %}</td>
                 <td>{% if d.is_paid %}<span class="badge badge-paid">Paid</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td>
                 <td>{{ '$%.2f' % d.amount_paid if d.amount_paid else '—' }}</td>
-                <td>{{ d.date_paid or '—' }}</td>
+                <td>{{ d.date_paid|usdate or '—' }}</td>
                 <td>{{ d.dues_notes or '—' }}</td>
                 <td>
                     {% if d.is_paid %}

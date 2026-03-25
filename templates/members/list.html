@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Family Directory — Sunset Courts{% endblock %}
+{% block title %}Account Directory — Sunset Courts{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h2>Family Directory</h2>
-    <a href="{{ url_for('member_add') }}" class="btn btn-primary">+ Add Family</a>
+    <h2>Account Directory</h2>
+    <a href="{{ url_for('member_add') }}" class="btn btn-primary">+ Add Account</a>
 </div>
 
 <form class="search-bar" method="GET" action="{{ url_for('member_list') }}">
-    <input type="text" name="search" placeholder="Search by family name or contact..." value="{{ search }}">
+    <input type="text" name="search" placeholder="Search by account name or contact..." value="{{ search }}">
     <button type="submit" class="btn btn-primary">Search</button>
     {% if search %}<a href="{{ url_for('member_list') }}" class="btn btn-outline">Clear</a>{% endif %}
 </form>
@@ -16,7 +16,7 @@
 <div class="table-wrap">
     <table>
         <thead>
-            <tr><th>Family Name</th><th>Contact</th><th>Phone</th><th>Joined</th><th>Dues</th><th>Status</th><th>Actions</th></tr>
+            <tr><th>Account Name</th><th>Contact</th><th>Phone</th><th>Joined</th><th>Dues</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody>
             {% for f in families %}
@@ -24,7 +24,7 @@
                 <td><a href="{{ url_for('member_view', family_id=f.family_id) }}" style="font-weight:600;">{{ f.family_name }}</a></td>
                 <td>{{ f.primary_contact or '—' }}</td>
                 <td>{{ f.phone or '—' }}</td>
-                <td>{{ f.join_date }}</td>
+                <td>{{ f.join_date|usdate }}</td>
                 <td>
                     {% if f.dues_paid %}<span class="badge badge-paid">Paid</span>
                     {% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}
@@ -55,9 +55,8 @@
 </div>
 {% else %}
 <div class="empty-state">
-    <div class="empty-icon">👥</div>
-    <p>{% if search %}No families match "{{ search }}".{% else %}No family accounts yet.{% endif %}</p>
-    <a href="{{ url_for('member_add') }}" class="btn btn-primary mt-16">+ Add First Family</a>
+    <p>{% if search %}No accounts match "{{ search }}".{% else %}No accounts yet.{% endif %}</p>
+    <a href="{{ url_for('member_add') }}" class="btn btn-primary mt-16">+ Add First Account</a>
 </div>
 {% endif %}
 {% endblock %}

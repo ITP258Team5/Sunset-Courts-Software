@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Court Schedule — {{ current_date.strftime('%A, %B %d, %Y') }}{% endblock %}
+{% block title %}Court Schedule — {{ current_date.strftime('%m/%d/%Y') }}{% endblock %}
 {% block content %}
 <div class="page-header">
     <h2>Court Schedule</h2>
@@ -7,9 +7,9 @@
 </div>
 
 <div class="calendar-nav">
-    <a href="{{ url_for('booking_calendar', date=prev_date) }}" class="btn btn-outline">◀ Previous</a>
+    <a href="{{ url_for('booking_calendar', date=prev_date) }}" class="btn btn-outline">Previous</a>
     <div class="current-date">{{ current_date.strftime('%A, %B %d, %Y') }}</div>
-    <a href="{{ url_for('booking_calendar', date=next_date) }}" class="btn btn-outline">Next ▶</a>
+    <a href="{{ url_for('booking_calendar', date=next_date) }}" class="btn btn-outline">Next</a>
 </div>
 
 <div style="text-align:center;margin-bottom:14px;">
@@ -26,7 +26,7 @@
         {% if court_bookings[court.court_id] %}
             {% for b in court_bookings[court.court_id] %}
             <div class="booking-slot">
-                <span class="time">{{ b.start_time }} – {{ b.end_time }}</span>
+                <span class="time">{{ b.start_time|ustime }} - {{ b.end_time|ustime }}</span>
                 <span class="family">
                     <a href="{{ url_for('booking_view', booking_id=b.booking_id) }}" style="color:var(--text);">{{ b.family_name }}</a>
                     {% if b.is_banned %}<span class="badge badge-banned" style="font-size:9px;">Banned</span>{% endif %}
@@ -34,7 +34,7 @@
                 {% if b.guest_count > 0 %}<span class="guests">+{{ b.guest_count }}</span>{% endif %}
                 <form method="POST" action="{{ url_for('booking_cancel', booking_id=b.booking_id) }}" style="display:inline;"
                       onsubmit="return confirm('Cancel this booking?');">
-                    <button type="submit" class="btn btn-danger btn-sm" style="padding:4px 8px;min-height:28px;font-size:11px;">✕</button>
+                    <button type="submit" class="btn btn-danger btn-sm" style="padding:4px 8px;min-height:28px;font-size:11px;">X</button>
                 </form>
             </div>
             {% endfor %}
