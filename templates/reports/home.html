@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Reports — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header"><h2>Reports</h2></div>
+<div class="report-grid">
+    <a href="{{ url_for('report_monthly') }}" class="report-card">
+        <h3>Monthly Usage</h3><p>Bookings by account and court for any month.</p>
+    </a>
+    <a href="{{ url_for('report_peak') }}" class="report-card">
+        <h3>Peak Times</h3><p>Frequency by hour and day of week.</p>
+    </a>
+    <a href="{{ url_for('report_yearly') }}" class="report-card">
+        <h3>Year-End Summary</h3><p>Total bookings, by account, by court.</p>
+    </a>
+    <a href="{{ url_for('report_guests') }}" class="report-card">
+        <h3>Guest Activity</h3><p>Guest counts per account.</p>
+    </a>
+    <a href="{{ url_for('report_dues_status') }}" class="report-card">
+        <h3>Dues Status</h3><p>All accounts — paid/unpaid.</p>
+    </a>
+</div>
+
+<div style="margin-top: 30px;">
+    <h3>Export to Spreadsheet</h3>
+    <p>Download report data.</p>
+
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+        <a href="{{ url_for('export_bookings_csv') }}" class="report-card">Export Bookings</a>
+        <a href="{{ url_for('export_members_csv') }}" class="report-card">Export Members</a>
+        <a href="{{ url_for('export_dues_csv') }}" class="report-card">Export Dues</a>
+    </div>
+</div>
+
+{% endblock %}

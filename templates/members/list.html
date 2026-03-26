@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Account Directory — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Account Directory</h2>
+    <a href="{{ url_for('member_add') }}" class="btn btn-primary">+ Add Account</a>
+</div>
+
+<form class="search-bar" method="GET" action="{{ url_for('member_list') }}">
+    <input type="text" name="search" placeholder="Search by account name or contact..." value="{{ search }}">
+    <button type="submit" class="btn btn-primary">Search</button>
+    {% if search %}<a href="{{ url_for('member_list') }}" class="btn btn-outline">Clear</a>{% endif %}
+</form>
+
+{% if families %}
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr><th>Account Name</th><th>Contact</th><th>Phone</th><th>Joined</th><th>Dues</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for f in families %}
+            <tr {% if f.is_banned %}style="background:#fef5f0;"{% endif %}>
+                <td><a href="{{ url_for('member_view', family_id=f.family_id) }}" style="font-weight:600;">{{ f.family_name }}</a></td>
+                <td>{{ f.primary_contact or '—' }}</td>
+                <td>{{ f.phone or '—' }}</td>
+                <td>{{ f.join_date|usdate }}</td>
+                <td>
+                    {% if f.dues_paid %}<span class="badge badge-paid">Paid</span>
+                    {% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}
+                </td>
+                <td>
+                    {% if f.is_banned %}<span class="badge badge-banned">Banned</span>
+                    {% else %}<span class="badge badge-active">Active</span>{% endif %}
+                </td>
+                <td>
+                    <div class="btn-group">
+                        <a href="{{ url_for('member_edit', family_id=f.family_id) }}" class="btn btn-outline btn-sm">Edit</a>
+                        {% if f.is_banned %}
+                        <form method="POST" action="{{ url_for('member_unban', family_id=f.family_id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-primary btn-sm">Unban</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('member_ban', family_id=f.family_id) }}" style="display:inline;"
+                              onsubmit="return confirm('Ban {{ f.family_name }}?');">
+                            <button type="submit" class="btn btn-danger btn-sm">Ban</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>{% if search %}No accounts match "{{ search }}".{% else %}No accounts yet.{% endif %}</p>
+    <a href="{{ url_for('member_add') }}" class="btn btn-primary mt-16">+ Add First Account</a>
+</div>
+{% endif %}
+{% endblock %}

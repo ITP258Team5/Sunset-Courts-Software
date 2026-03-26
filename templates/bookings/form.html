@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}New Booking — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Create New Booking</h2>
+    <a href="{{ url_for('booking_calendar') }}" class="btn btn-outline">Calendar</a>
+</div>
+<div class="card">
+    <form method="POST" action="{{ url_for('booking_add') }}">
+        <div class="form-group">
+            <label for="family_id">Account *</label>
+            <select id="family_id" name="family_id" required>
+                <option value="">— Select an account —</option>
+                {% for f in families %}
+                <option value="{{ f.family_id }}" {% if booking.get('family_id') and booking.get('family_id')|string == f.family_id|string %}selected{% endif %}>
+                    {{ f.family_name }} ({{ f.primary_contact or 'No contact' }})
+                </option>
+                {% endfor %}
+            </select>
+            <span class="hint">Only active (non-banned) accounts shown.</span>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="court_id">Court *</label>
+                <select id="court_id" name="court_id" required>
+                    <option value="">— Select —</option>
+                    {% for c in courts %}
+                    <option value="{{ c.court_id }}" {% if booking.get('court_id') and booking.get('court_id')|string == c.court_id|string %}selected{% endif %}>{{ c.court_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="booking_date">Date *</label>
+                <input type="date" id="booking_date" name="booking_date" value="{{ booking.get('booking_date', '') }}" required>
+                <span class="hint">Max 365 days advance.</span>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="start_time">Start Time *</label>
+                <input type="time" id="start_time" name="start_time" value="{{ booking.get('start_time', '') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="end_time">End Time *</label>
+                <input type="time" id="end_time" name="end_time" value="{{ booking.get('end_time', '') }}" required>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="guest_count">Guests</label>
+                <input type="number" id="guest_count" name="guest_count" min="0" max="10" value="{{ booking.get('guest_count', 0) }}">
+                <span class="hint">Recommended limit: 2 per visit.</span>
+            </div>
+            <div class="form-group">
+                <label for="notes">Notes</label>
+                <input type="text" id="notes" name="notes" value="{{ booking.get('notes', '') }}" placeholder="Tennis, Pickleball, etc.">
+            </div>
+        </div>
+        <div class="btn-group mt-16">
+            <button type="submit" class="btn btn-primary btn-lg">Create Booking</button>
+            <a href="{{ url_for('booking_calendar') }}" class="btn btn-outline btn-lg">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Sunset Courts Management System
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/sunset-courts
+ExecStart=/usr/bin/python3 /home/pi/sunset-courts/app.py
+Restart=on-failure
+RestartSec=5
+Environment=FLASK_ENV=production
+
+[Install]
+WantedBy=multi-user.target

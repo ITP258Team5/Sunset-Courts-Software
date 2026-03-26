@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add Account' if mode == 'add' else 'Edit Account' }} — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>{{ 'Add New Account' if mode == 'add' else 'Edit Account' }}</h2>
+    <a href="{{ url_for('member_list') }}" class="btn btn-outline">Back</a>
+</div>
+<div class="card">
+    <form method="POST" action="{{ url_for('member_add') if mode == 'add' else url_for('member_edit', family_id=family_id) }}">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="family_name">Account Name *</label>
+                <input type="text" id="family_name" name="family_name"
+                       value="{{ family['family_name'] if family and family['family_name'] else '' }}"
+                       placeholder='e.g. "The Smith Family" or "John Smith"' required>
+            </div>
+            <div class="form-group">
+                <label for="primary_contact">Primary Contact</label>
+                <input type="text" id="primary_contact" name="primary_contact"
+                       value="{{ family['primary_contact'] if family and family['primary_contact'] else '' }}"
+                       placeholder="e.g. John Smith">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="phone">Phone</label>
+                <input type="tel" id="phone" name="phone"
+                       value="{{ family['phone'] if family and family['phone'] else '' }}" placeholder="540-555-0100">
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email"
+                       value="{{ family['email'] if family and family['email'] else '' }}" placeholder="name@email.com">
+            </div>
+        </div>
+        {% if mode == 'add' %}
+        <div class="form-group">
+            <label for="join_date">Join Date</label>
+            <input type="date" id="join_date" name="join_date" value="{{ family['join_date'] if family and family['join_date'] else '' }}">
+            <span class="hint">Defaults to today if blank.</span>
+        </div>
+        {% endif %}
+        <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="3" placeholder="Optional notes...">{{ family['notes'] if family and family['notes'] else '' }}</textarea>
+        </div>
+        <div class="btn-group mt-16">
+            <button type="submit" class="btn btn-primary btn-lg">{{ 'Add Account' if mode == 'add' else 'Save Changes' }}</button>
+            <a href="{{ url_for('member_list') }}" class="btn btn-outline btn-lg">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Booking #{{ booking.booking_id }} — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Booking Details</h2>
+    <a href="{{ url_for('booking_calendar', date=booking.booking_date) }}" class="btn btn-outline">Calendar</a>
+</div>
+<div class="card">
+    <div class="detail-grid">
+        <div class="label">Booking ID</div><div class="value">#{{ booking.booking_id }}</div>
+        <div class="label">Account</div>
+        <div class="value"><a href="{{ url_for('member_view', family_id=booking.family_id) }}" style="font-weight:600;">{{ booking.family_name }}</a>
+            {% if booking.is_banned %}<span class="badge badge-banned">Banned</span>{% endif %}</div>
+        <div class="label">Court</div><div class="value">{{ booking.court_name }}</div>
+        <div class="label">Date</div><div class="value"><strong>{{ booking.booking_date|usdate }}</strong></div>
+        <div class="label">Time</div><div class="value"><strong>{{ booking.start_time|ustime }} - {{ booking.end_time|ustime }}</strong></div>
+        <div class="label">Guests</div><div class="value">{{ booking.guest_count }}{% if booking.guest_count > 2 %} <span style="color:var(--warning-text);">(exceeds limit)</span>{% endif %}</div>
+        <div class="label">Status</div><div class="value">{% if booking.is_cancelled %}<span style="color:var(--danger);font-weight:700;">Cancelled</span>{% else %}<span style="color:var(--open-text);font-weight:700;">Active</span>{% endif %}</div>
+        {% if booking.notes %}<div class="label">Notes</div><div class="value">{{ booking.notes }}</div>{% endif %}
+        <div class="label">Created</div><div class="value">{{ booking.created_at }}</div>
+    </div>
+    {% if not booking.is_cancelled %}
+    <form method="POST" action="{{ url_for('booking_cancel', booking_id=booking.booking_id) }}"
+          onsubmit="return confirm('Cancel this booking?');" class="mt-16">
+        <button type="submit" class="btn btn-danger btn-lg">Cancel Booking</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}
