@@ -2,18 +2,6 @@
 {% block title %}Guest Activity — Sunset Courts{% endblock %}
 {% block content %}
 <div class="page-header"><h2>Guest Activity — {{ year }}</h2><a href="{{ url_for('reports_home') }}" class="btn btn-outline">Reports</a></div>
-<div class="card mb-16">
-    <form method="GET" action="{{ url_for('report_guests') }}" class="form-row" style="align-items:end;">
-        <div class="form-group" style="margin-bottom:0;"><label>Year</label><input type="number" name="year" value="{{ year }}" min="2020" max="2030"></div>
-        <div class="form-group" style="margin-bottom:0;"><button type="submit" class="btn btn-primary">View</button></div>
-    </form>
-</div>
-{% if guest_report %}
-<div class="card"><div class="table-wrap"><table>
-    <thead><tr><th>#</th><th>Account</th><th>Total Guests</th><th>Visits w/ Guests</th><th>Avg/Visit</th></tr></thead>
-    <tbody>{% for r in guest_report %}<tr><td>{{ loop.index }}</td><td><strong>{{ r.family_name }}</strong></td><td>{{ r.total_guests }}</td><td>{{ r.visits_with_guests }}</td><td>{{ '%.1f' % (r.total_guests / r.visits_with_guests) }}</td></tr>{% endfor %}</tbody>
-</table></div></div>
-{% else %}
-<div class="card"><div class="empty-state"><p>No guest activity for {{ year }}.</p></div></div>
-{% endif %}
+<div class="card mb-16"><form method="GET" action="{{ url_for('report_guests') }}" class="form-row" style="align-items:end;"><div class="form-group" style="margin-bottom:0;"><label>Year</label><input type="number" name="year" value="{{ year }}" min="2020" max="2030"></div><div class="form-group" style="margin-bottom:0;"><button type="submit" class="btn btn-primary">View</button></div></form></div>
+{% if guest_report %}<div class="card"><div class="table-wrap"><table><thead><tr><th>#</th><th>Account</th><th>Total Guests</th><th>Visits w/ Guests</th><th>Avg/Visit</th></tr></thead><tbody>{% for r in guest_report %}<tr><td>{{ loop.index }}</td><td><strong>{{ r.account_name }}</strong></td><td>{{ r.total_guests }}</td><td>{{ r.visits_with_guests }}</td><td>{{ '%.1f' % (r.total_guests / r.visits_with_guests) }}</td></tr>{% endfor %}</tbody></table></div></div>{% else %}<div class="card"><div class="empty-state"><p>No guest activity for {{ year }}.</p></div></div>{% endif %}
 {% endblock %}

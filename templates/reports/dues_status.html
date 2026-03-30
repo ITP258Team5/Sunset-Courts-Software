@@ -2,26 +2,9 @@
 {% block title %}Dues Status — Sunset Courts{% endblock %}
 {% block content %}
 <div class="page-header"><h2>Dues Status — {{ year }}</h2><a href="{{ url_for('reports_home') }}" class="btn btn-outline">Reports</a></div>
-<div class="card mb-16">
-    <form method="GET" action="{{ url_for('report_dues_status') }}" class="form-row" style="align-items:end;">
-        <div class="form-group" style="margin-bottom:0;"><label>Year</label><input type="number" name="year" value="{{ year }}" min="2020" max="2030"></div>
-        <div class="form-group" style="margin-bottom:0;"><button type="submit" class="btn btn-primary">View</button></div>
-    </form>
-</div>
-<div class="stat-strip">
-    <div class="stat-item"><div class="stat-value" style="color:var(--open-text);">{{ paid_count }}</div><div class="stat-label">Paid</div></div>
-    <div class="stat-item"><div class="stat-value" style="color:var(--danger);">{{ unpaid_count }}</div><div class="stat-label">Unpaid</div></div>
-    <div class="stat-item"><div class="stat-value">{{ paid_count + unpaid_count }}</div><div class="stat-label">Total</div></div>
-</div>
-<div class="card"><div class="table-wrap"><table>
-    <thead><tr><th>Account</th><th>Status</th><th>Amount</th><th>Date Paid</th><th>Account Status</th></tr></thead>
-    <tbody>{% for r in dues_report %}
-    <tr {% if r.is_banned %}style="background:#fef5f0;"{% endif %}>
-        <td><strong>{{ r.family_name }}</strong></td>
-        <td>{% if r.is_paid %}<span class="badge badge-paid">Paid</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td>
-        <td>{{ '$%.2f' % r.amount_paid if r.amount_paid else '—' }}</td>
-        <td>{{ r.date_paid|usdate or '—' }}</td>
-        <td>{% if r.is_banned %}<span class="badge badge-banned">Banned</span>{% else %}<span class="badge badge-active">Active</span>{% endif %}</td>
-    </tr>{% endfor %}</tbody>
-</table></div></div>
+<div class="card mb-16"><form method="GET" action="{{ url_for('report_dues_status') }}" class="form-row" style="align-items:end;"><div class="form-group" style="margin-bottom:0;"><label>Year</label><input type="number" name="year" value="{{ year }}" min="2020" max="2030"></div><div class="form-group" style="margin-bottom:0;"><button type="submit" class="btn btn-primary">View</button></div></form></div>
+<div class="stat-strip"><div class="stat-item"><div class="stat-value" style="color:var(--open-text);">{{ paid_count }}</div><div class="stat-label">Paid</div></div><div class="stat-item"><div class="stat-value" style="color:var(--danger);">{{ unpaid_count }}</div><div class="stat-label">Unpaid</div></div><div class="stat-item"><div class="stat-value">{{ paid_count + unpaid_count }}</div><div class="stat-label">Total</div></div></div>
+<div class="card"><div class="table-wrap"><table><thead><tr><th>Account</th><th>Status</th><th>Paid / Total</th><th>Date Paid</th><th>Account Status</th></tr></thead><tbody>
+{% for r in dues_report %}<tr {% if r.is_banned %}style="background:#fef5f0;"{% endif %}><td><strong>{{ r.account_name }}</strong></td><td>{% if r.is_paid %}<span class="badge badge-paid">Paid</span>{% elif r.amount_paid and r.amount_paid > 0 %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td><td><span class="dues-amount"><span class="paid-part">${{ '%.2f' % (r.amount_paid or 0) }}</span> <span class="total-part">/ ${{ '%.2f' % (r.total_due or DUES_RATE) }}</span></span></td><td>{{ r.date_paid|usdate or '—' }}</td><td>{% if r.is_banned %}<span class="badge badge-banned">Banned</span>{% else %}<span class="badge badge-active">Active</span>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div></div>
 {% endblock %}

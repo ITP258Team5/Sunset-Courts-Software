@@ -2,26 +2,11 @@
 {% block title %}Year-End Summary — Sunset Courts{% endblock %}
 {% block content %}
 <div class="page-header"><h2>Year-End Summary — {{ year }}</h2><a href="{{ url_for('reports_home') }}" class="btn btn-outline">Reports</a></div>
-<div class="card mb-16">
-    <form method="GET" action="{{ url_for('report_yearly') }}" class="form-row" style="align-items:end;">
-        <div class="form-group" style="margin-bottom:0;"><label>Year</label><input type="number" name="year" value="{{ year }}" min="2020" max="2030"></div>
-        <div class="form-group" style="margin-bottom:0;"><button type="submit" class="btn btn-primary">View</button></div>
-    </form>
-</div>
-<div class="stat-strip">
-    <div class="stat-item"><div class="stat-value">{{ total_bookings }}</div><div class="stat-label">Total Bookings</div></div>
-    <div class="stat-item"><div class="stat-value">{{ by_member|length }}</div><div class="stat-label">Active Accounts</div></div>
-    <div class="stat-item"><div class="stat-value">{{ by_court|length }}</div><div class="stat-label">Courts Used</div></div>
-</div>
+<div class="card mb-16"><form method="GET" action="{{ url_for('report_yearly') }}" class="form-row" style="align-items:end;"><div class="form-group" style="margin-bottom:0;"><label>Year</label><input type="number" name="year" value="{{ year }}" min="2020" max="2030"></div><div class="form-group" style="margin-bottom:0;"><button type="submit" class="btn btn-primary">View</button></div></form></div>
+<div class="stat-strip"><div class="stat-item"><div class="stat-value">{{ total_bookings }}</div><div class="stat-label">Total Bookings</div></div><div class="stat-item"><div class="stat-value">{{ by_member|length }}</div><div class="stat-label">Active Accounts</div></div><div class="stat-item"><div class="stat-value">{{ by_court|length }}</div><div class="stat-label">Courts Used</div></div></div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-    <div class="card"><div class="card-header">Bookings by Account</div>
-        {% if by_member %}<div class="table-wrap"><table><thead><tr><th>#</th><th>Account</th><th>Bookings</th></tr></thead><tbody>{% for r in by_member %}<tr><td>{{ loop.index }}</td><td>{{ r.family_name }}</td><td><strong>{{ r.cnt }}</strong></td></tr>{% endfor %}</tbody></table></div>{% else %}<p style="color:var(--text-muted);">No data.</p>{% endif %}
-    </div>
-    <div class="card"><div class="card-header">Bookings by Court</div>
-        {% if by_court %}<div class="bar-chart">{% set mx = namespace(v=1) %}{% for r in by_court %}{% if r.cnt > mx.v %}{% set mx.v = r.cnt %}{% endif %}{% endfor %}{% for r in by_court %}<div class="bar-row"><span class="bar-label">{{ r.court_name }}</span><div class="bar-fill alt" style="width:{{ (r.cnt/mx.v*100)|int }}%;min-width:36px;">{{ r.cnt }}</div></div>{% endfor %}</div>{% else %}<p style="color:var(--text-muted);">No data.</p>{% endif %}
-    </div>
+<div class="card"><div class="card-header">Bookings by Account</div>{% if by_member %}<div class="table-wrap"><table><thead><tr><th>#</th><th>Account</th><th>Bookings</th></tr></thead><tbody>{% for r in by_member %}<tr><td>{{ loop.index }}</td><td>{{ r.account_name }}</td><td><strong>{{ r.cnt }}</strong></td></tr>{% endfor %}</tbody></table></div>{% else %}<p style="color:var(--text-muted);">No data.</p>{% endif %}</div>
+<div class="card"><div class="card-header">Bookings by Court</div>{% if by_court %}<div class="bar-chart">{% set mx = namespace(v=1) %}{% for r in by_court %}{% if r.cnt > mx.v %}{% set mx.v = r.cnt %}{% endif %}{% endfor %}{% for r in by_court %}<div class="bar-row"><span class="bar-label">{{ r.court_name }}</span><div class="bar-fill alt" style="width:{{ (r.cnt/mx.v*100)|int }}%;min-width:36px;">{{ r.cnt }}</div></div>{% endfor %}</div>{% else %}<p style="color:var(--text-muted);">No data.</p>{% endif %}</div>
 </div>
-<div class="card mt-16"><div class="card-header">Maintenance Blocks by Court</div>
-    {% if maintenance_by_court %}<div class="bar-chart">{% set mx = namespace(v=1) %}{% for r in maintenance_by_court %}{% if r.cnt > mx.v %}{% set mx.v = r.cnt %}{% endif %}{% endfor %}{% for r in maintenance_by_court %}<div class="bar-row"><span class="bar-label">{{ r.court_name }}</span><div class="bar-fill" style="width:{{ (r.cnt/mx.v*100)|int }}%;min-width:36px;background:var(--danger);">{{ r.cnt }}</div></div>{% endfor %}</div>{% else %}<p style="color:var(--text-muted);">No maintenance blocks for {{ year }}.</p>{% endif %}
-</div>
+<div class="card mt-16"><div class="card-header">Maintenance Blocks by Court</div>{% if maintenance_by_court %}<div class="bar-chart">{% set mx = namespace(v=1) %}{% for r in maintenance_by_court %}{% if r.cnt > mx.v %}{% set mx.v = r.cnt %}{% endif %}{% endfor %}{% for r in maintenance_by_court %}<div class="bar-row"><span class="bar-label">{{ r.court_name }}</span><div class="bar-fill" style="width:{{ (r.cnt/mx.v*100)|int }}%;min-width:36px;background:var(--danger);">{{ r.cnt }}</div></div>{% endfor %}</div>{% else %}<p style="color:var(--text-muted);">No maintenance blocks for {{ year }}.</p>{% endif %}</div>
 {% endblock %}

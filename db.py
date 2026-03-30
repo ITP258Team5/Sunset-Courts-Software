@@ -1,6 +1,5 @@
 """
 Database helper module for the Sunset Courts Management System.
-Provides connection management and common query utilities.
 """
 
 import sqlite3
@@ -10,7 +9,6 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sunset_court
 
 
 def get_db():
-    """Get a database connection with foreign keys and Row factory."""
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
@@ -18,7 +16,6 @@ def get_db():
 
 
 def query_db(query, args=(), one=False):
-    """Execute a SELECT query and return results."""
     conn = get_db()
     try:
         cursor = conn.execute(query, args)
@@ -29,7 +26,6 @@ def query_db(query, args=(), one=False):
 
 
 def execute_db(query, args=()):
-    """Execute an INSERT/UPDATE/DELETE and return lastrowid."""
     conn = get_db()
     try:
         cursor = conn.execute(query, args)

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Account Directory — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header"><h2>Account Directory</h2><a href="{{ url_for('account_add') }}" class="btn btn-primary">+ Add Account</a></div>
+<form class="search-bar" method="GET" action="{{ url_for('account_list') }}">
+    <input type="text" name="search" placeholder="Search by name, contact, phone, or join date..." value="{{ search }}">
+    <button type="submit" class="btn btn-primary">Search</button>
+    {% if search %}<a href="{{ url_for('account_list') }}" class="btn btn-outline">Clear</a>{% endif %}
+</form>
+{% if accounts %}
+<div class="table-wrap"><table>
+<thead><tr><th>Account Name</th><th>Contact</th><th>Phone</th><th>Joined</th><th>Dues</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>{% for a in accounts %}
+<tr {% if a.is_banned %}style="background:#fef5f0;"{% endif %}>
+    <td><a href="{{ url_for('account_view', account_id=a.account_id) }}" style="font-weight:600;">{{ a.account_name }}</a></td>
+    <td>{{ a.primary_contact or '—' }}</td><td>{{ a.phone or '—' }}</td><td>{{ a.join_date|usdate }}</td>
+    <td>{% if a.dues_paid %}<span class="badge badge-paid">Paid</span>{% elif a.amount_paid and a.amount_paid > 0 %}<span class="badge badge-partial">${{ '%.0f' % a.amount_paid }}/${{ '%.0f' % (a.total_due or DUES_RATE) }}</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td>
+    <td>{% if a.is_banned %}<span class="badge badge-banned">Banned</span>{% else %}<span class="badge badge-active">Active</span>{% endif %}</td>
+    <td><div class="btn-group">
+        <a href="{{ url_for('account_edit', account_id=a.account_id) }}" class="btn btn-outline btn-sm">Edit</a>
+        {% if a.is_banned %}<form method="POST" action="{{ url_for('account_unban', account_id=a.account_id) }}" style="display:inline;"><button type="submit" class="btn btn-primary btn-sm">Unban</button></form>{% else %}<form method="POST" action="{{ url_for('account_ban', account_id=a.account_id) }}" style="display:inline;" onsubmit="return confirm('Ban {{ a.account_name }}?');"><button type="submit" class="btn btn-danger btn-sm">Ban</button></form>{% endif %}
+        {% if not a.is_protected %}<form method="POST" action="{{ url_for('account_delete', account_id=a.account_id) }}" style="display:inline;" onsubmit="return confirm('Permanently delete {{ a.account_name }}?');"><button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);">Delete</button></form>{% endif %}
+    </div></td>
+</tr>{% endfor %}</tbody></table></div>
+{% else %}<div class="empty-state"><p>{% if search %}No accounts match "{{ search }}".{% else %}No accounts yet.{% endif %}</p><a href="{{ url_for('account_add') }}" class="btn btn-primary mt-16">+ Add First Account</a></div>{% endif %}
+{% endblock %}
