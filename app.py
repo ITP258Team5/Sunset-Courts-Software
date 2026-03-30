@@ -68,7 +68,7 @@ def inject_globals():
 
 @app.before_request
 def check_time_verified():
-    allowed = ['verify_time', 'static']
+    allowed = ['verify_time', 'static', 'exit_kiosk', 'admin_reopen', 'launch_kiosk']
     if request.endpoint in allowed:
         return
     if not session.get('time_verified'):
@@ -958,6 +958,83 @@ def export_maintenance():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename=maintenance_{year}.csv'}
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  ADMIN
+# ═══════════════════════════════════════════════════════════════════
+
+@app.route('/admin/exit-kiosk', methods=['POST'])
+def exit_kiosk():
+    """Kill kiosk browser, open a small reopen window."""
+    import subprocess
+    # Kill kiosk chromium
+    subprocess.Popen(['pkill', '-f', 'chromium'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # Wait a moment then open a small regular window to the reopen page
+    subprocess.Popen(
+        ['bash', '-c', 'sleep 1 && chromium --app=http://localhost:5000/admin/reopen '
+         '--window-size=400,250 --window-position=50,50 '
+         '--noerrdialogs --no-first-run 2>/dev/null'],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    return '', 204
+
+
+@app.route('/admin/reopen')
+def admin_reopen():
+    """Small popup page with a button to relaunch kiosk mode."""
+    return '''<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Sunset Courts</title>
+<style>
+  body { font-family: Georgia, serif; background: #fdf6ee; margin: 0;
+         display: flex; align-items: center; justify-content: center;
+         height: 100vh; text-align: center; }
+  .box { padding: 30px; }
+  h2 { color: #6a3010; margin-bottom: 8px; font-size: 18px; }
+  p { color: #9a7050; font-size: 13px; margin-bottom: 20px; }
+  button { background: #c45c1e; color: white; border: none; padding: 14px 32px;
+           border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;
+           font-family: inherit; }
+  button:hover { background: #a04818; }
+</style>
+</head><body>
+<div class="box">
+  <h2>Kiosk Mode Exited</h2>
+  <p>The desktop is now accessible.</p>
+  <form method="POST" action="/admin/launch-kiosk">
+    <button type="submit">Reopen Kiosk</button>
+  </form>
+</div>
+</body></html>'''
+
+
+@app.route('/admin/launch-kiosk', methods=['POST'])
+def launch_kiosk():
+    """Relaunch kiosk browser and close the popup."""
+    import subprocess
+    # Find the browser
+    browser = 'chromium'
+    subprocess.Popen(
+        ['bash', '-c', f'sleep 0.5 && {browser} --kiosk --noerrdialogs '
+         '--disable-infobars --no-first-run http://localhost:5000 2>/dev/null'],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    )
+    # Return a self-closing page
+    return '''<!DOCTYPE html>
+<html><head>
+<title>Reopening...</title>
+<style>
+  body { font-family: Georgia, serif; background: #fdf6ee; margin: 0;
+         display: flex; align-items: center; justify-content: center;
+         height: 100vh; text-align: center; }
+  p { color: #6a3010; font-size: 16px; }
+</style>
+<script>setTimeout(function(){ window.close(); }, 2000);</script>
+</head><body>
+<p>Reopening kiosk...</p>
+</body></html>'''
 
 
 # ═══════════════════════════════════════════════════════════════════
