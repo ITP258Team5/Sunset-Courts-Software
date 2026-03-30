@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Export &amp; Backup — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header"><h2>Export &amp; Backup</h2></div>
+
+<!-- BACKUP SECTION -->
+<div class="section-label">One-Click Backup</div>
+
+{% if usb_drives %}
+<div class="card mb-16" style="border-color:var(--open-border);background:#f8fdf5;">
+    <div class="flex-between">
+        <div>
+            <strong style="color:var(--open-text);">USB Drive Detected</strong>
+            <p style="color:var(--text-muted);font-size:13px;">Saves the database and all CSV exports to your USB drive in a "SunsetCourts_Backups" folder.</p>
+        </div>
+        <form method="POST" action="{{ url_for('export_backup') }}">
+            <input type="hidden" name="target" value="usb">
+            <button type="submit" class="btn btn-primary btn-lg">Backup to USB</button>
+        </form>
+    </div>
+</div>
+{% else %}
+<div class="card mb-16" style="border-color:var(--border);">
+    <div class="flex-between">
+        <div>
+            <strong>No USB Drive Detected</strong>
+            <p style="color:var(--text-muted);font-size:13px;">Insert a USB drive to back up directly to it, or save a local backup.</p>
+        </div>
+        <form method="POST" action="{{ url_for('export_backup') }}">
+            <input type="hidden" name="target" value="local">
+            <button type="submit" class="btn btn-outline btn-lg">Save Local Backup</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if local_backups %}
+<div class="card mb-16">
+    <div class="card-header">Local Backups</div>
+    <div class="table-wrap"><table>
+        <thead><tr><th>File</th><th>Date</th><th>Size</th></tr></thead>
+        <tbody>
+        {% for b in local_backups %}
+        <tr><td>{{ b.filename }}</td><td>{{ b.date }}</td><td>{{ b.size_kb }} KB</td></tr>
+        {% endfor %}
+        </tbody>
+    </table></div>
+</div>
+{% endif %}
+
+<!-- CSV DOWNLOAD SECTION -->
+<div class="section-label">Individual CSV Downloads</div>
+
+<div class="card mb-16">
+    <div class="flex-between">
+        <div>
+            <strong>All Accounts</strong>
+            <p style="color:var(--text-muted);font-size:13px;">Names, contacts, phone numbers, join dates, status</p>
+        </div>
+        <a href="{{ url_for('export_accounts') }}" class="btn btn-outline">Download CSV</a>
+    </div>
+</div>
+
+<div class="card mb-16">
+    <form class="flex-between" action="{{ url_for('export_bookings') }}" method="GET">
+        <div>
+            <strong>Bookings by Year</strong>
+            <p style="color:var(--text-muted);font-size:13px;">All reservations with court, time, guests, and status</p>
+        </div>
+        <div class="btn-group">
+            <input type="number" name="year" value="{{ current_year }}" min="2020" max="2030" style="width:90px;min-height:44px;padding:8px;">
+            <button type="submit" class="btn btn-outline">Download CSV</button>
+        </div>
+    </form>
+</div>
+
+<div class="card mb-16">
+    <form class="flex-between" action="{{ url_for('export_dues') }}" method="GET">
+        <div>
+            <strong>Dues by Year</strong>
+            <p style="color:var(--text-muted);font-size:13px;">Payment status, amounts, dates for all accounts</p>
+        </div>
+        <div class="btn-group">
+            <input type="number" name="year" value="{{ current_year }}" min="2020" max="2030" style="width:90px;min-height:44px;padding:8px;">
+            <button type="submit" class="btn btn-outline">Download CSV</button>
+        </div>
+    </form>
+</div>
+
+<div class="card mb-16">
+    <form class="flex-between" action="{{ url_for('export_maintenance') }}" method="GET">
+        <div>
+            <strong>Maintenance Records by Year</strong>
+            <p style="color:var(--text-muted);font-size:13px;">Court downtime records with dates and reasons</p>
+        </div>
+        <div class="btn-group">
+            <input type="number" name="year" value="{{ current_year }}" min="2020" max="2030" style="width:90px;min-height:44px;padding:8px;">
+            <button type="submit" class="btn btn-outline">Download CSV</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

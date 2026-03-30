@@ -3,9 +3,14 @@ Sunset Courts Management System (SCMS)
 Flask application — Sprint 2 Build
 """
 
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, Response
 from datetime import datetime, date, timedelta
 from db import get_db, query_db, execute_db
+import csv
+import io
+import os
+import shutil
+import glob
 
 app = Flask(__name__)
 app.secret_key = 'sunset-courts-kiosk-2026'
@@ -52,7 +57,8 @@ def inject_globals():
     return {
         'today_display': now.strftime('%a %m/%d/%Y  %-I:%M %p'),
         'DUES_RATE': DUES_RATE,
-        'MAINTENANCE_ACCOUNT_ID': MAINTENANCE_ACCOUNT_ID
+        'MAINTENANCE_ACCOUNT_ID': MAINTENANCE_ACCOUNT_ID,
+        'current_year': now.year
     }
 
 
@@ -75,6 +81,7 @@ def verify_time():
         action = request.form.get('action')
         if action == 'confirm':
             session['time_verified'] = True
+            _check_dues_reset()
             return redirect(url_for('dashboard'))
         elif action == 'set':
             new_date = request.form.get('new_date', '')
@@ -88,6 +95,7 @@ def verify_time():
                 except Exception:
                     flash('Could not set system time. Continuing with current time.', 'warning')
                 session['time_verified'] = True
+                _check_dues_reset()
                 return redirect(url_for('dashboard'))
 
     now = datetime.now()
@@ -95,6 +103,42 @@ def verify_time():
                            current_date=now.strftime('%Y-%m-%d'),
                            current_time=now.strftime('%H:%M'),
                            current_display=now.strftime('%A, %B %d, %Y  %-I:%M %p'))
+
+
+def _check_dues_reset():
+    """Check if the year has rolled over since last launch. If so, create
+    unpaid dues records for all accounts for the new year."""
+    current_year = date.today().year
+
+    last = query_db("SELECT value FROM system_config WHERE key = 'last_launch_year'", one=True)
+    last_year = int(last['value']) if last else None
+
+    if last_year is None:
+        # First launch — just record the year
+        execute_db("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_launch_year', ?)",
+                   (str(current_year),))
+        return
+
+    if current_year > last_year:
+        # Year rolled over — create unpaid dues for all non-maintenance accounts
+        accounts = query_db('SELECT account_id FROM accounts WHERE account_id != ?',
+                            (MAINTENANCE_ACCOUNT_ID,))
+        count = 0
+        for acct in accounts:
+            existing = query_db('SELECT * FROM dues WHERE account_id = ? AND year = ?',
+                                (acct['account_id'], current_year), one=True)
+            if not existing:
+                execute_db('''
+                    INSERT INTO dues (account_id, year, is_paid, amount_paid, total_due)
+                    VALUES (?, ?, 0, 0.0, ?)
+                ''', (acct['account_id'], current_year, DUES_RATE))
+                count += 1
+
+        if count > 0:
+            flash(f'New year detected. {count} account(s) have been reset to unpaid for {current_year}.', 'warning')
+
+        execute_db("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_launch_year', ?)",
+                   (str(current_year),))
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -643,6 +687,277 @@ def report_dues_status():
     paid = sum(1 for r in report if r['is_paid'])
     return render_template('reports/dues_status.html', dues_report=report, year=year,
                            paid_count=paid, unpaid_count=len(report) - paid)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  DATA EXPORT & BACKUP
+# ═══════════════════════════════════════════════════════════════════
+
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+BACKUP_DIR = os.path.join(APP_DIR, 'backups')
+
+
+def _detect_usb():
+    """Find mounted USB drives. Returns list of mount paths."""
+    usb_paths = []
+    media_base = '/media'
+    if os.path.exists(media_base):
+        for user_dir in os.listdir(media_base):
+            user_path = os.path.join(media_base, user_dir)
+            if os.path.isdir(user_path):
+                for drive in os.listdir(user_path):
+                    drive_path = os.path.join(user_path, drive)
+                    if os.path.ismount(drive_path):
+                        usb_paths.append(drive_path)
+    return usb_paths
+
+
+def _create_backup(destination=None):
+    """Create a dated backup of the database. Returns the backup path."""
+    db_path = os.path.join(APP_DIR, 'sunset_courts.db')
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M')
+    filename = f'sunset_courts_backup_{timestamp}.db'
+
+    if destination:
+        backup_path = os.path.join(destination, filename)
+    else:
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        backup_path = os.path.join(BACKUP_DIR, filename)
+
+    shutil.copy2(db_path, backup_path)
+    return backup_path
+
+
+def _cleanup_old_backups(keep=8):
+    """Keep only the most recent backups in the local backup folder."""
+    if not os.path.exists(BACKUP_DIR):
+        return
+    backups = sorted(glob.glob(os.path.join(BACKUP_DIR, 'sunset_courts_backup_*.db')))
+    while len(backups) > keep:
+        os.remove(backups.pop(0))
+
+
+def _get_local_backups():
+    """List existing local backups, newest first."""
+    if not os.path.exists(BACKUP_DIR):
+        return []
+    backups = sorted(glob.glob(os.path.join(BACKUP_DIR, 'sunset_courts_backup_*.db')), reverse=True)
+    result = []
+    for b in backups:
+        stat = os.stat(b)
+        result.append({
+            'filename': os.path.basename(b),
+            'size_kb': round(stat.st_size / 1024),
+            'date': datetime.fromtimestamp(stat.st_mtime).strftime('%m/%d/%Y %-I:%M %p')
+        })
+    return result
+
+
+@app.route('/export')
+def export_home():
+    usb_drives = _detect_usb()
+    local_backups = _get_local_backups()
+    return render_template('export.html', usb_drives=usb_drives, local_backups=local_backups)
+
+
+@app.route('/export/backup', methods=['POST'])
+def export_backup():
+    target = request.form.get('target', 'local')
+
+    if target == 'usb':
+        usb_drives = _detect_usb()
+        if not usb_drives:
+            flash('No USB drive detected. Please insert a USB drive and try again.', 'error')
+            return redirect(url_for('export_home'))
+
+        usb_path = usb_drives[0]
+        try:
+            # Create backup folder on USB
+            usb_backup_dir = os.path.join(usb_path, 'SunsetCourts_Backups')
+            os.makedirs(usb_backup_dir, exist_ok=True)
+
+            # Copy database
+            backup_path = _create_backup(usb_backup_dir)
+
+            # Also generate CSVs to USB
+            year = date.today().year
+            _export_csv_to_dir(usb_backup_dir, year)
+
+            drive_name = os.path.basename(usb_path)
+            flash(f'Backup saved to USB drive ({drive_name}). Database and CSV files exported.', 'success')
+        except PermissionError:
+            flash('Cannot write to USB drive. The drive may be read-only.', 'error')
+        except Exception as e:
+            flash(f'Backup failed: {str(e)}', 'error')
+    else:
+        _create_backup()
+        _cleanup_old_backups()
+        flash('Backup saved locally.', 'success')
+
+    return redirect(url_for('export_home'))
+
+
+def _export_csv_to_dir(directory, year):
+    """Write all CSV exports directly to a directory."""
+    timestamp = datetime.now().strftime('%Y-%m-%d')
+
+    # Accounts
+    accounts = query_db('''
+        SELECT account_name, primary_contact, phone, email, join_date, is_banned, notes
+        FROM accounts WHERE account_id != ? ORDER BY account_name
+    ''', (MAINTENANCE_ACCOUNT_ID,))
+    with open(os.path.join(directory, f'accounts_{timestamp}.csv'), 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['Account Name', 'Primary Contact', 'Phone', 'Email', 'Join Date', 'Banned', 'Notes'])
+        for a in accounts:
+            w.writerow([a['account_name'], a['primary_contact'] or '', a['phone'] or '',
+                        a['email'] or '', a['join_date'], 'Yes' if a['is_banned'] else 'No', a['notes'] or ''])
+
+    # Bookings
+    bookings = query_db('''
+        SELECT a.account_name, c.court_name, b.booking_date, b.start_time, b.end_time,
+               b.guest_count, b.notes, b.is_cancelled
+        FROM bookings b JOIN accounts a ON b.account_id = a.account_id
+        JOIN courts c ON b.court_id = c.court_id
+        WHERE strftime('%Y', b.booking_date) = ? AND b.account_id != ?
+        ORDER BY b.booking_date, b.start_time
+    ''', (str(year), MAINTENANCE_ACCOUNT_ID))
+    with open(os.path.join(directory, f'bookings_{year}.csv'), 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['Account', 'Court', 'Date', 'Start Time', 'End Time', 'Guests', 'Notes', 'Cancelled'])
+        for b in bookings:
+            w.writerow([b['account_name'], b['court_name'], b['booking_date'],
+                        b['start_time'], b['end_time'], b['guest_count'], b['notes'] or '',
+                        'Yes' if b['is_cancelled'] else 'No'])
+
+    # Dues
+    dues = query_db('''
+        SELECT a.account_name, d.year, d.is_paid, d.amount_paid, d.total_due, d.date_paid, d.notes
+        FROM accounts a LEFT JOIN dues d ON a.account_id = d.account_id AND d.year = ?
+        WHERE a.account_id != ? ORDER BY a.account_name
+    ''', (year, MAINTENANCE_ACCOUNT_ID))
+    with open(os.path.join(directory, f'dues_{year}.csv'), 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['Account', 'Year', 'Paid', 'Amount Paid', 'Total Due', 'Date Paid', 'Notes'])
+        for d in dues:
+            w.writerow([d['account_name'], d['year'] or year, 'Yes' if d['is_paid'] else 'No',
+                        f"{d['amount_paid'] or 0:.2f}", f"{d['total_due'] or DUES_RATE:.2f}",
+                        d['date_paid'] or '', d['notes'] or ''])
+
+
+# Individual CSV downloads (kept for direct download use)
+
+@app.route('/export/accounts')
+def export_accounts():
+    accounts = query_db('''
+        SELECT account_name, primary_contact, phone, email, join_date, is_banned, notes
+        FROM accounts WHERE account_id != ?
+        ORDER BY account_name
+    ''', (MAINTENANCE_ACCOUNT_ID,))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Account Name', 'Primary Contact', 'Phone', 'Email', 'Join Date', 'Banned', 'Notes'])
+    for a in accounts:
+        writer.writerow([
+            a['account_name'], a['primary_contact'] or '', a['phone'] or '',
+            a['email'] or '', a['join_date'], 'Yes' if a['is_banned'] else 'No',
+            a['notes'] or ''
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=accounts_{date.today().isoformat()}.csv'}
+    )
+
+
+@app.route('/export/bookings')
+def export_bookings():
+    year = request.args.get('year', date.today().year, type=int)
+    bookings = query_db('''
+        SELECT a.account_name, c.court_name, b.booking_date, b.start_time, b.end_time,
+               b.guest_count, b.notes, b.is_cancelled
+        FROM bookings b
+        JOIN accounts a ON b.account_id = a.account_id
+        JOIN courts c ON b.court_id = c.court_id
+        WHERE strftime('%Y', b.booking_date) = ? AND b.account_id != ?
+        ORDER BY b.booking_date, b.start_time
+    ''', (str(year), MAINTENANCE_ACCOUNT_ID))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Account', 'Court', 'Date', 'Start Time', 'End Time', 'Guests', 'Notes', 'Cancelled'])
+    for b in bookings:
+        writer.writerow([
+            b['account_name'], b['court_name'], b['booking_date'],
+            b['start_time'], b['end_time'], b['guest_count'],
+            b['notes'] or '', 'Yes' if b['is_cancelled'] else 'No'
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=bookings_{year}.csv'}
+    )
+
+
+@app.route('/export/dues')
+def export_dues():
+    year = request.args.get('year', date.today().year, type=int)
+    dues = query_db('''
+        SELECT a.account_name, d.year, d.is_paid, d.amount_paid, d.total_due, d.date_paid, d.notes
+        FROM accounts a
+        LEFT JOIN dues d ON a.account_id = d.account_id AND d.year = ?
+        WHERE a.account_id != ?
+        ORDER BY a.account_name
+    ''', (year, MAINTENANCE_ACCOUNT_ID))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Account', 'Year', 'Paid', 'Amount Paid', 'Total Due', 'Date Paid', 'Notes'])
+    for d in dues:
+        writer.writerow([
+            d['account_name'], d['year'] or year,
+            'Yes' if d['is_paid'] else 'No',
+            f"{d['amount_paid'] or 0:.2f}",
+            f"{d['total_due'] or DUES_RATE:.2f}",
+            d['date_paid'] or '', d['notes'] or ''
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=dues_{year}.csv'}
+    )
+
+
+@app.route('/export/maintenance')
+def export_maintenance():
+    year = request.args.get('year', date.today().year, type=int)
+    maint = query_db('''
+        SELECT c.court_name, b.booking_date, b.start_time, b.end_time, b.notes
+        FROM bookings b
+        JOIN courts c ON b.court_id = c.court_id
+        WHERE b.account_id = ? AND b.is_cancelled = 0
+        AND strftime('%Y', b.booking_date) = ?
+        ORDER BY b.booking_date, b.start_time
+    ''', (MAINTENANCE_ACCOUNT_ID, str(year)))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Court', 'Date', 'Start Time', 'End Time', 'Reason'])
+    for m in maint:
+        writer.writerow([
+            m['court_name'], m['booking_date'], m['start_time'],
+            m['end_time'], m['notes'] or ''
+        ])
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=maintenance_{year}.csv'}
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════
