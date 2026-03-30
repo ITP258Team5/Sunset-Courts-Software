@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ account.account_name }} — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header"><h2>{{ account.account_name }}{% if account.is_banned %} <span class="badge badge-banned">Banned</span>{% endif %}</h2><div class="btn-group"><a href="{{ url_for('account_edit', account_id=account.account_id) }}" class="btn btn-outline">Edit</a><a href="{{ url_for('account_list') }}" class="btn btn-outline">Back</a></div></div>
+<div class="card"><div class="card-header">Account Details</div>
+    <div class="detail-grid">
+        <div class="label">Contact</div><div class="value">{{ account.primary_contact or '—' }}</div>
+        <div class="label">Phone</div><div class="value">{{ account.phone or '—' }}</div>
+        <div class="label">Email</div><div class="value">{{ account.email or '—' }}</div>
+        <div class="label">Joined</div><div class="value">{{ account.join_date|usdate }}</div>
+        <div class="label">Status</div><div class="value">{% if account.is_banned %}<span class="badge badge-banned">Banned</span>{% else %}<span class="badge badge-active">Active</span>{% endif %}</div>
+        {% if account.notes %}<div class="label">Notes</div><div class="value">{{ account.notes }}</div>{% endif %}
+    </div>
+    {% if not account.is_protected %}<div class="btn-group">
+        {% if account.is_banned %}<form method="POST" action="{{ url_for('account_unban', account_id=account.account_id) }}"><button type="submit" class="btn btn-primary">Lift Ban</button></form>{% else %}<form method="POST" action="{{ url_for('account_ban', account_id=account.account_id) }}" onsubmit="return confirm('Ban this account?');"><button type="submit" class="btn btn-danger">Ban Account</button></form>{% endif %}
+        <form method="POST" action="{{ url_for('account_delete', account_id=account.account_id) }}" onsubmit="return confirm('Permanently delete this account?');"><button type="submit" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger);">Delete Account</button></form>
+    </div>{% endif %}
+</div>
+<div class="card"><div class="card-header">Dues History</div>
+    {% if dues %}<div class="table-wrap"><table><thead><tr><th>Year</th><th>Status</th><th>Paid</th><th>Date Paid</th><th>Notes</th></tr></thead><tbody>
+    {% for d in dues %}<tr><td><strong>{{ d.year }}</strong></td><td>{% if d.is_paid %}<span class="badge badge-paid">Paid</span>{% elif d.amount_paid and d.amount_paid > 0 %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td><td><span class="dues-amount"><span class="paid-part">${{ '%.2f' % (d.amount_paid or 0) }}</span> <span class="total-part">/ ${{ '%.2f' % (d.total_due or DUES_RATE) }}</span></span></td><td>{{ d.date_paid|usdate or '—' }}</td><td>{{ d.notes or '—' }}</td></tr>{% endfor %}
+    </tbody></table></div>{% else %}<p style="color:var(--text-muted);">No dues records.</p>{% endif %}
+</div>
+<div class="card"><div class="flex-between mb-16"><div class="card-header" style="border:none;margin:0;padding:0;">Booking History</div>{% if not account.is_banned %}<a href="{{ url_for('booking_add') }}" class="btn btn-primary btn-sm">+ New Booking</a>{% endif %}</div>
+    {% if bookings %}<div class="table-wrap"><table><thead><tr><th>Date</th><th>Time</th><th>Court</th><th>Guests</th><th>Status</th></tr></thead><tbody>{% for b in bookings %}<tr><td>{{ b.booking_date|usdate }}</td><td>{{ b.start_time|ustime }} - {{ b.end_time|ustime }}</td><td>{{ b.court_name }}</td><td>{{ b.guest_count if b.guest_count > 0 else '—' }}</td><td>{% if b.is_cancelled %}<span style="color:var(--danger);">Cancelled</span>{% else %}Active{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p style="color:var(--text-muted);">No bookings.</p>{% endif %}
+</div>
+{% endblock %}

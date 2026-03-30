@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add Account' if mode == 'add' else 'Edit Account' }} — Sunset Courts{% endblock %}
+{% block content %}
+<div class="page-header"><h2>{{ 'Add New Account' if mode == 'add' else 'Edit Account' }}</h2><a href="{{ url_for('account_list') }}" class="btn btn-outline">Back</a></div>
+<div class="card"><form method="POST" action="{{ url_for('account_add') if mode == 'add' else url_for('account_edit', account_id=account_id) }}">
+    <div class="form-row">
+        <div class="form-group"><label for="account_name">Account Name *</label><input type="text" id="account_name" name="account_name" value="{{ account['account_name'] if account and account['account_name'] else '' }}" placeholder='e.g. "The Smith Family" or "John Smith"' required></div>
+        <div class="form-group"><label for="primary_contact">Primary Contact</label><input type="text" id="primary_contact" name="primary_contact" value="{{ account['primary_contact'] if account and account['primary_contact'] else '' }}" placeholder="e.g. John Smith"></div>
+    </div>
+    <div class="form-row">
+        <div class="form-group"><label for="phone">Phone</label><input type="tel" id="phone" name="phone" value="{{ account['phone'] if account and account['phone'] else '' }}" placeholder="540-555-0100"></div>
+        <div class="form-group"><label for="email">Email</label><input type="email" id="email" name="email" value="{{ account['email'] if account and account['email'] else '' }}" placeholder="name@email.com"></div>
+    </div>
+    {% if mode == 'add' %}<div class="form-group"><label for="join_date">Join Date</label><input type="date" id="join_date" name="join_date" value="{{ account['join_date'] if account and account['join_date'] else '' }}"><span class="hint">Defaults to today if blank.</span></div>{% endif %}
+    <div class="form-group"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="3" placeholder="Optional notes...">{{ account['notes'] if account and account['notes'] else '' }}</textarea></div>
+    <div class="btn-group mt-16"><button type="submit" class="btn btn-primary btn-lg">{{ 'Add Account' if mode == 'add' else 'Save Changes' }}</button><a href="{{ url_for('account_list') }}" class="btn btn-outline btn-lg">Cancel</a></div>
+</form></div>
+{% endblock %}

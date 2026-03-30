@@ -1,44 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Dues Management — Sunset Courts{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h2>Dues — {{ current_year }}</h2>
-    <div class="btn-group">
-        <a href="{{ url_for('dues_list', year=current_year - 1) }}" class="btn btn-outline btn-sm">{{ current_year - 1 }}</a>
-        <a href="{{ url_for('dues_list', year=current_year + 1) }}" class="btn btn-outline btn-sm">{{ current_year + 1 }}</a>
-    </div>
-</div>
-<div class="table-wrap">
-    <table>
-        <thead><tr><th>Account</th><th>Status</th><th>Amount</th><th>Date Paid</th><th>Notes</th><th>Action</th></tr></thead>
-        <tbody>
-            {% for d in dues %}
-            <tr {% if d.is_banned %}style="background:#fef5f0;"{% endif %}>
-                <td><strong>{{ d.family_name }}</strong>
-                    {% if d.is_banned %}<span class="badge badge-banned" style="font-size:9px;">Banned</span>{% endif %}</td>
-                <td>{% if d.is_paid %}<span class="badge badge-paid">Paid</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td>
-                <td>{{ '$%.2f' % d.amount_paid if d.amount_paid else '—' }}</td>
-                <td>{{ d.date_paid|usdate or '—' }}</td>
-                <td>{{ d.dues_notes or '—' }}</td>
-                <td>
-                    {% if d.is_paid %}
-                    <form method="POST" action="{{ url_for('dues_unpay', family_id=d.family_id) }}" style="display:inline;">
-                        <input type="hidden" name="year" value="{{ current_year }}">
-                        <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Mark unpaid?');">Mark Unpaid</button>
-                    </form>
-                    {% else %}
-                    <form method="POST" action="{{ url_for('dues_pay', family_id=d.family_id) }}"
-                          style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                        <input type="hidden" name="year" value="{{ current_year }}">
-                        <input type="number" name="amount" step="0.01" min="0" value="150.00" style="width:90px;min-height:32px;padding:4px 8px;">
-                        <input type="text" name="notes" placeholder="Notes..." style="width:120px;min-height:32px;padding:4px 8px;">
-                        <button type="submit" class="btn btn-primary btn-sm">Record</button>
-                    </form>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<div class="page-header"><h2>Dues — {{ current_year }}</h2><div class="btn-group"><a href="{{ url_for('dues_list', year=current_year - 1) }}" class="btn btn-outline btn-sm">{{ current_year - 1 }}</a><a href="{{ url_for('dues_list', year=current_year + 1) }}" class="btn btn-outline btn-sm">{{ current_year + 1 }}</a></div></div>
+<div class="table-wrap"><table>
+<thead><tr><th>Account</th><th>Status</th><th>Paid / Total</th><th>Date Paid</th><th>Notes</th><th>Action</th></tr></thead>
+<tbody>{% for d in dues %}
+<tr {% if d.is_banned %}style="background:#fef5f0;"{% endif %}>
+    <td><strong>{{ d.account_name }}</strong>{% if d.is_banned %} <span class="badge badge-banned" style="font-size:9px;">Banned</span>{% endif %}</td>
+    <td>{% if d.is_paid %}<span class="badge badge-paid">Paid</span>{% elif d.amount_paid and d.amount_paid > 0 %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-unpaid">Unpaid</span>{% endif %}</td>
+    <td><span class="dues-amount"><span class="paid-part">${{ '%.2f' % (d.amount_paid or 0) }}</span> <span class="total-part">/ ${{ '%.2f' % (d.total_due or DUES_RATE) }}</span></span></td>
+    <td>{{ d.date_paid|usdate or '—' }}</td>
+    <td>{{ d.dues_notes or '—' }}</td>
+    <td>{% if d.is_paid %}
+        <form method="POST" action="{{ url_for('dues_unpay', account_id=d.account_id) }}" style="display:inline;"><input type="hidden" name="year" value="{{ current_year }}"><button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('Mark unpaid?');">Mark Unpaid</button></form>
+    {% else %}
+        <form method="POST" action="{{ url_for('dues_pay', account_id=d.account_id) }}" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="hidden" name="year" value="{{ current_year }}">
+            <input type="hidden" name="total" value="{{ d.total_due or DUES_RATE }}">
+            <input type="number" name="amount" step="0.01" min="0" value="{{ '%.2f' % (d.total_due or DUES_RATE) }}" style="width:90px;min-height:32px;padding:4px 8px;">
+            <input type="text" name="notes" placeholder="Notes..." style="width:120px;min-height:32px;padding:4px 8px;">
+            <button type="submit" class="btn btn-primary btn-sm">Record</button>
+        </form>
+    {% endif %}</td>
+</tr>{% endfor %}</tbody></table></div>
 {% endblock %}

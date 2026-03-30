@@ -1,50 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Court Schedule — {{ current_date.strftime('%m/%d/%Y') }}{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h2>Court Schedule</h2>
-    <a href="{{ url_for('booking_add', date=current_date.isoformat()) }}" class="btn btn-primary">+ New Booking</a>
-</div>
-
+<div class="page-header"><h2>Court Schedule</h2><a href="{{ url_for('booking_add', date=current_date.isoformat()) }}" class="btn btn-primary">+ New Booking</a></div>
 <div class="calendar-nav">
     <a href="{{ url_for('booking_calendar', date=prev_date) }}" class="btn btn-outline">Previous</a>
     <div class="current-date">{{ current_date.strftime('%A, %B %d, %Y') }}</div>
     <a href="{{ url_for('booking_calendar', date=next_date) }}" class="btn btn-outline">Next</a>
 </div>
-
-<div style="text-align:center;margin-bottom:14px;">
-    <form method="GET" action="{{ url_for('booking_calendar') }}" style="display:inline-flex;gap:8px;align-items:center;">
-        <label style="font-weight:600;font-size:13px;color:var(--text-section);text-transform:uppercase;letter-spacing:1px;">Jump to:</label>
-        <input type="date" name="date" value="{{ current_date.isoformat() }}" style="width:auto;" onchange="this.form.submit()">
-    </form>
-</div>
-
-<div class="court-columns">
-    {% for court in courts %}
-    <div class="court-column">
-        <div class="court-column-header">{{ court.court_name }}</div>
-        {% if court_bookings[court.court_id] %}
-            {% for b in court_bookings[court.court_id] %}
-            <div class="booking-slot">
-                <span class="time">{{ b.start_time|ustime }} - {{ b.end_time|ustime }}</span>
-                <span class="family">
-                    <a href="{{ url_for('booking_view', booking_id=b.booking_id) }}" style="color:var(--text);">{{ b.family_name }}</a>
-                    {% if b.is_banned %}<span class="badge badge-banned" style="font-size:9px;">Banned</span>{% endif %}
-                </span>
-                {% if b.guest_count > 0 %}<span class="guests">+{{ b.guest_count }}</span>{% endif %}
-                <form method="POST" action="{{ url_for('booking_cancel', booking_id=b.booking_id) }}" style="display:inline;"
-                      onsubmit="return confirm('Cancel this booking?');">
-                    <button type="submit" class="btn btn-danger btn-sm" style="padding:4px 8px;min-height:28px;font-size:11px;">X</button>
-                </form>
-            </div>
-            {% endfor %}
-        {% else %}
-            <div class="no-bookings">No bookings</div>
-        {% endif %}
-        <div style="padding:8px;text-align:center;border-top:1px solid var(--border-light);">
-            <a href="{{ url_for('booking_add', date=current_date.isoformat(), court=court.court_id) }}" class="btn btn-outline btn-sm btn-block">+ Book</a>
-        </div>
-    </div>
-    {% endfor %}
-</div>
+<div style="text-align:center;margin-bottom:14px;"><form method="GET" action="{{ url_for('booking_calendar') }}" style="display:inline-flex;gap:8px;align-items:center;"><label style="font-weight:600;font-size:13px;color:var(--text-section);text-transform:uppercase;letter-spacing:1px;">Jump to:</label><input type="date" name="date" value="{{ current_date.isoformat() }}" style="width:auto;" onchange="this.form.submit()"></form></div>
+<div class="court-columns">{% for court in courts %}<div class="court-column">
+    <div class="court-column-header">{{ court.court_name }}</div>
+    {% if court_bookings[court.court_id] %}{% for b in court_bookings[court.court_id] %}
+    <div class="booking-slot{% if b.acct_id == MAINTENANCE_ACCOUNT_ID %} is-maintenance{% endif %}">
+        <span class="time">{{ b.start_time|ustime }} - {{ b.end_time|ustime }}</span>
+        <span class="family">{% if b.acct_id == MAINTENANCE_ACCOUNT_ID %}<strong>MAINT</strong>{% else %}<a href="{{ url_for('booking_view', booking_id=b.booking_id) }}" style="color:var(--text);">{{ b.account_name }}</a>{% endif %}{% if b.is_banned %} <span class="badge badge-banned" style="font-size:9px;">Banned</span>{% endif %}</span>
+        {% if b.guest_count > 0 and b.acct_id != MAINTENANCE_ACCOUNT_ID %}<span class="guests">+{{ b.guest_count }}</span>{% endif %}
+        <form method="POST" action="{{ url_for('booking_cancel', booking_id=b.booking_id) }}" style="display:inline;" onsubmit="return confirm('Cancel this booking?');"><button type="submit" class="btn btn-danger btn-sm" style="padding:4px 8px;min-height:28px;font-size:11px;">X</button></form>
+    </div>{% endfor %}{% else %}<div class="no-bookings">No bookings</div>{% endif %}
+    <div style="padding:8px;text-align:center;border-top:1px solid var(--border-light);"><a href="{{ url_for('booking_add', date=current_date.isoformat(), court=court.court_id) }}" class="btn btn-outline btn-sm btn-block">+ Book</a></div>
+</div>{% endfor %}</div>
 {% endblock %}
