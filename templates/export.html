@@ -99,4 +99,17 @@
         </div>
     </form>
 </div>
+
+<div class="section-label" style="margin-top:40px;">Administration</div>
+<div class="card" style="border-color:var(--danger);border-style:dashed;">
+    <div class="flex-between">
+        <div>
+            <strong>Exit Kiosk Mode</strong>
+            <p style="color:var(--text-muted);font-size:13px;">Closes the full-screen browser so you can access the desktop. The system will continue running in the background.</p>
+        </div>
+        <form method="POST" action="{{ url_for('exit_kiosk') }}" onsubmit="return confirm('Exit kiosk mode? The browser will close.');">
+            <button type="submit" class="btn btn-outline" style="color:var(--danger);border-color:var(--danger);">Exit Kiosk</button>
+        </form>
+    </div>
+</div>
 {% endblock %}
