@@ -66,11 +66,19 @@ def inject_globals():
 #  TIME VERIFICATION (runs before every request)
 # ═══════════════════════════════════════════════════════════════════
 
+# Unique ID generated each time Flask starts — used to detect reboots
+import uuid
+APP_STARTUP_ID = str(uuid.uuid4())
+
+
 @app.before_request
 def check_time_verified():
     allowed = ['verify_time', 'static', 'exit_kiosk', 'admin_reopen', 'launch_kiosk']
     if request.endpoint in allowed:
         return
+    # Force re-verification if Flask restarted (new startup ID won't match session)
+    if session.get('startup_id') != APP_STARTUP_ID:
+        session.pop('time_verified', None)
     if not session.get('time_verified'):
         return redirect(url_for('verify_time'))
 
@@ -81,6 +89,7 @@ def verify_time():
         action = request.form.get('action')
         if action == 'confirm':
             session['time_verified'] = True
+            session['startup_id'] = APP_STARTUP_ID
             _check_dues_reset()
             return redirect(url_for('dashboard'))
         elif action == 'set':
@@ -95,6 +104,7 @@ def verify_time():
                 except Exception:
                     flash('Could not set system time. Continuing with current time.', 'warning')
                 session['time_verified'] = True
+                session['startup_id'] = APP_STARTUP_ID
                 _check_dues_reset()
                 return redirect(url_for('dashboard'))
 
